@@ -1,0 +1,5 @@
+// 本地云开发环境配置。
+// 复制本文件为 config.local.js 并填入你自己的真实 env，再 git push 时 config.local.js 已被 .gitignore 忽略，不会进公开仓库。
+module.exports = {
+  cloudEnv: 'free-d4ghcn6kmf592a75f'
+}

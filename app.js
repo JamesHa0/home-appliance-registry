@@ -10,8 +10,11 @@ App({
       console.error('请使用 2.2.3 或以上的基础库以使用云能力')
       return
     }
+    // 云开发环境 ID：公开仓库用占位，真实值取自被忽略的 config.local.js（见 config.local.js.sample）
+    let cloudEnv = 'free-xxxxxxxx'
+    try { cloudEnv = require('./config.local.js').cloudEnv } catch (e) {}
     wx.cloud.init({
-      env: 'free-d4ghcn6kmf592a75f',
+      env: cloudEnv,
       traceUser: true
     })
     // 启动时拉取当前用户的 openid 与家庭信息

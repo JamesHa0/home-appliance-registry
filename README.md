@@ -38,7 +38,7 @@ home-appliance-registry/
 | 位置 | 内容 | 状态 |
 |------|------|------|
 | `project.config.json` | appid | ✅ 已填 |
-| `app.js` | 云开发环境 ID | ✅ 已填（free-d4ghcn6kmf592a75f） |
+| `app.js` | 云开发环境 ID | ✅ 已填（占位 `free-xxxxxxxx`，真实值见 `config.local.js`，由 `.gitignore` 忽略不进公开仓库，模板见 `config.local.js.sample`） |
 | `pages/settings/settings.js` + `cloudfunctions/sendWarrantyReminder/index.js` | 订阅模板 ID（公众平台 → 功能 → 订阅消息，选用"保修到期"类模板） | ⏳ 待申请后替换 2 处 `YOUR_WARRANTY_TEMPLATE_ID` |
 | `cloudfunctions/getBarcodeInfo/index.js` | 条码查询 API Key | ⏳ 可选（留空仅走本地型号库） |
 
