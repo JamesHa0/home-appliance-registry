@@ -1,4 +1,4 @@
-# 家电户籍 — 微信小程序（云开发 MVP 骨架）
+# 家电户籍 — 微信小程序
 
 跨品牌家庭设备中枢：扫码建档 → 保修倒计时 → 家庭共享 → 政策/召回提醒。
 
@@ -7,11 +7,11 @@
 ```
 home-appliance-registry/
 ├── app.js / app.json / app.wxss      全局（云开发初始化、tabBar、主题）
-├── project.config.json               项目配置（AppID 占位）
+├── project.config.json               项目配置
 ├── pages/
 │   ├── index/                        首页：设备列表 + 待办提醒条
-│   ├── add-device/                   建档页：扫码 → 条码反查 → 表单
-│   ├── device-detail/                详情：保修状态、说明书入口、售后电话
+│   ├── add-device/                   建档页：扫码 → 条码反查 → 表单（含型号库 UGC 开关）
+│   ├── device-detail/                详情：保修状态、说明书入口、售后电话、删除
 │   ├── family/                       家庭：创建/邀请码加入/成员
 │   ├── policy/                       政策：国补/以旧换新/召回公告聚合
 │   └── settings/                     提醒：一次性订阅（保修到期）
@@ -20,7 +20,8 @@ home-appliance-registry/
 │   ├── format.js                     日期/倒计时
 │   └── cloud.js                      云函数调用封装
 └── cloudfunctions/
-    ├── getBarcodeInfo/               条码反查（本地型号库 → 条码 API）
+    ├── familyService/                家庭+设备 CRUD 统一入口（成员关系校验，家庭共享核心）
+    ├── getBarcodeInfo/               条码反查（本地型号库 → 条码 API → matchModel 模糊匹配）
     ├── scanRecall/                   召回公告定时抓取
     └── sendWarrantyReminder/         保修到期定时提醒（一次性订阅下发）
 ```
@@ -29,64 +30,72 @@ home-appliance-registry/
 
 1. **安装微信开发者工具**（官网下载，选稳定版 Windows 64）：
    https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html
-2. 用你已注册的个人主体小程序账号扫码登录，导入本目录。
-3. 开发者工具右上角「云开发」→ 开通环境（基础版免费额度即可），记下 **环境 ID**。
+2. 用已注册的个人主体小程序账号扫码登录，导入本目录。
+3. 开发者工具右上角「云开发」→ 开通环境（基础版免费额度即可）。
 
-## 二、必须替换的配置点（4 处）
+## 二、配置点
 
-| 位置 | 替换内容 | 状态 |
-|------|---------|------|
-| `project.config.json` | `appid` → 你的小程序 AppID | ✅ 已填（wxbff1749c09556c18） |
-| `app.js` | `env` → 你的云开发环境 ID | ✅ 已填（free-d4ghcn6kmf592a75f） |
-| `pages/settings/settings.js` + `cloudfunctions/sendWarrantyReminder/index.js` | `YOUR_WARRANTY_TEMPLATE_ID` → 订阅模板 ID（公众平台 → 功能 → 订阅消息，选用"保修到期"类模板） | ⏳ 待申请后替换 |
-| `cloudfunctions/getBarcodeInfo/index.js` | `BARCODE_API_KEY` → 条码查询 API Key（可留空，仅走本地型号库） | ⏳ 可选 |
+| 位置 | 内容 | 状态 |
+|------|------|------|
+| `project.config.json` | appid | ✅ 已填 |
+| `app.js` | 云开发环境 ID | ✅ 已填（free-d4ghcn6kmf592a75f） |
+| `pages/settings/settings.js` + `cloudfunctions/sendWarrantyReminder/index.js` | 订阅模板 ID（公众平台 → 功能 → 订阅消息，选用"保修到期"类模板） | ⏳ 待申请后替换 2 处 `YOUR_WARRANTY_TEMPLATE_ID` |
+| `cloudfunctions/getBarcodeInfo/index.js` | 条码查询 API Key | ⏳ 可选（留空仅走本地型号库） |
 
-## 二点五、云端已自动配置（2026-08-20）
+## 三、云端已配置（2026-08-20）
 
-通过 CloudBase 连接器已完成：环境确认（`free-d4ghcn6kmf592a75f`，即微信开发者工具中的云开发环境）→ 创建 6 个集合（devices/families/models/recalls/policies/subscriptions）→ 导入种子数据（models 18 条、policies 3 条、recalls 2 条）→ models/policies/recalls 权限设为"所有用户可读"。
+通过 CloudBase 连接器自动完成：环境确认 → 6 集合创建 → 种子数据导入（models 18 / policies 3 / recalls 2）→ 公开集合只读、家庭数据仅云函数可访问 → 索引（families: members+_openid；devices: familyId+createdAt）。
 
-> devices/families/subscriptions 保持"仅创建者可读写"（安全默认）。家庭共享的成员互读能力需要后续用**云函数封装 CRUD**（校验 familyId 成员关系）实现，当前 MVP 先以建档者本人视角跑通。
+**当前权限矩阵**（已生效）：
 
-## 三、云函数部署
+| 集合 | 权限 | 说明 |
+|------|------|------|
+| `devices` | ADMINONLY | 仅云函数可访问（客户端一律走 familyService） |
+| `families` | ADMINONLY | 仅云函数可访问（同上） |
+| `models` / `policies` / `recalls` | READONLY | 所有用户可读（型号库/政策/召回） |
+| `subscriptions` | PRIVATE | 用户管理自己的订阅记录 |
 
-1. 开发者工具资源管理器 → `cloudfunctions` 目录下每个函数**右键 → 上传并部署：云端安装依赖**。
+## 四、云函数部署（共 4 个）
+
+1. `cloudfunctions` 下每个函数文件夹**右键 → 上传并部署：云端安装依赖**（已部署：getBarcodeInfo / scanRecall / sendWarrantyReminder / familyService）。
 2. 定时触发器（云开发控制台 → 云函数 → 配置触发器）：
    - `scanRecall`：`0 0 2 * * * *`（每天 02:00 抓取召回公告）
-   - `sendWarrantyReminder`：`0 0 9 * * * *`（每天 09:00 扫保修到期并推送）
-3. 部署后先手动测试一次：云开发控制台 → 云函数 → 云端测试（`scanRecall` 传 `{"action":"run"}`）。
+   - `sendWarrantyReminder`：`0 0 9 * * * *`（每天 09:00 扫保修 7 天内到期并推送）
+3. 手动测试：云函数 → 云端测试（`scanRecall` 传 `{"action":"run"}`）。
 
-## 四、数据库集合与权限（云开发控制台创建）
+## 五、家庭共享架构（familyService）
 
-| 集合 | 用途 | 权限建议 |
-|------|------|---------|
-| `devices` | 设备档案 | 仅创建者可读写（家庭共享走云函数/后续调整） |
-| `families` | 家庭组 | 仅创建者可读写 |
-| `models` | 型号库（条码→型号→说明书） | 所有用户可读，仅管理端可写 |
-| `recalls` | 召回公告 | 所有用户可读 |
-| `policies` | 政策（国补/以旧换新） | 所有用户可读 |
-| `subscriptions` | 订阅授权记录 | 仅创建者可读写 |
+家庭/设备数据的**所有读写都经 `familyService` 云函数**，服务端通过 `getWXContext().OPENID` 识别调用者并校验成员关系：
 
-> 家庭共享的完整权限模型（成员共同读写同一家庭设备）建议用**云函数封装 CRUD**（查询时校验 familyId 成员关系），当前骨架为简化实现，上线前务必收紧。
+| Action | 说明 |
+|--------|------|
+| `getFamily` | 返回调用者家庭（含 openid） |
+| `createFamily` / `joinFamily` | 创建（幂等）/ 按邀请码加入（members 去重 push） |
+| `getDevices` / `getDevice` | 家庭设备列表 / 详情（非成员访问被拒） |
+| `createDevice` | 建档（无家庭自动创建）；`contribute:true` 且型号不在库 → 写入 models（UGC，source=ugc） |
+| `updateDevice` / `deleteDevice` | 仅家庭内成员可操作 |
 
-## 五、预置数据（跑通体验的最低配置）
+> 前端约定：所有调用走 `utils/cloud.js` 的 `call('familyService', {...})`，返回值统一 `{ code, data | msg }`。
 
-项目已带种子数据文件（`db/` 目录），在**云开发控制台 → 数据库 → 对应集合 → 导入**即可：
+## 六、预置数据
+
+项目已带种子数据文件（`db/` 目录），云开发控制台 → 数据库 → 对应集合 → 导入：
 
 | 文件 | 集合 | 内容 |
 |------|------|------|
-| `db/seed-models.json` | `models` | 美的/海尔/小米 18 个高频型号（品牌/品类/型号/名称/官网说明书入口），冷启动建档用 |
-| `db/seed-policies.json` | `policies` | 2026 国补 6 类家电 15% 补贴、数码智能 4 类、地方自主品类（含官方政策链接） |
-| `db/seed-recalls.json` | `recalls` | 官方真实召回案例（荣事达电饭煲、三益燃气灶），用于验证"型号命中召回提醒" |
+| `db/seed-models.json` | `models` | 美的/海尔/小米 18 个高频型号 |
+| `db/seed-policies.json` | `policies` | 2026 国补 6 类家电、数码智能 4 类、地方自主品类（含官方链接） |
+| `db/seed-recalls.json` | `recalls` | 官方真实召回案例（荣事达电饭煲、三益燃气灶） |
 
-> models 种子数据为公开渠道可查的高频型号示例，型号与说明书链接以品牌官网为准；后续靠条码 API 兜底 + 用户建档 UGC 持续扩充。`getBarcodeInfo` 云函数支持 `action: "matchModel"` 按品牌+型号文本模糊匹配，供 OCR/手输型号兜底。
+## 七、已知限制
 
-## 六、已知限制（架构已按此设计）
+- 个人主体**仅一次性订阅消息**：保修到期可推送；国补/召回走站内"政策"页提醒（召回按型号匹配并在首页/详情标红）。
+- 订阅模板未申请前，提醒页显示配置提示，不影响其他流程。
+- 升级企业主体 + 服务号后可解锁真正的召回/政策推送与以旧换新 CPS 变现。
 
-- 个人主体**仅一次性订阅消息**：保修到期可推送；国补/召回走站内"政策"页提醒（`scanRecall` 抓取的召回会匹配设备型号并在首页/详情标红）。
-- 升级企业主体 + 服务号后可解锁真正的召回/政策推送与以旧换新 CPS 变现，代码无需大改。
+## 八、下一步
 
-## 七、下一步
-
-1. 真机预览，家人群 10 人建档测试：扫码命中率、是否愿意填购机日、家庭共享是否被用。
-2. 按测试结果优化建档漏斗（补 OCR 兜底路径）。
-3. 型号库 UGC 贡献机制（建档即贡献 + 激励）。
+1. **双人真机验证家庭共享**（需两台微信）：A 创建家庭复制邀请码 → B 输入邀请码加入 → 互相可见对方设备、均可建档/删除。
+2. 家人群 10 人建档测试：扫码命中率、是否愿意填购机日、家庭共享使用率。
+3. 订阅模板申请 → 替换 2 处模板 ID → 配定时触发器。
+4. 体验增强：OCR 铭牌识别兜底、条码 API Key 接入。
