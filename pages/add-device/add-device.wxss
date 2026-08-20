@@ -58,6 +58,33 @@
   padding: 16rpx;
 }
 
+.ugc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28rpx;
+  padding: 20rpx 24rpx;
+  background: var(--primary-light);
+  border-radius: 12rpx;
+}
+
+.ugc-text {
+  flex: 1;
+  margin-right: 20rpx;
+}
+
+.ugc-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.ugc-sub {
+  font-size: 22rpx;
+  color: var(--text-hint);
+  margin-top: 4rpx;
+}
+
 .save-btn {
   margin-top: 32rpx;
   width: 100%;

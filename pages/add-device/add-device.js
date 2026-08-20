@@ -1,5 +1,6 @@
 const warrantyUtil = require('../../utils/warranty')
 const format = require('../../utils/format')
+const cloud = require('../../utils/cloud')
 
 const CATEGORIES = ['空调', '冰箱', '洗衣机', '电视', '热水器', '油烟机', '电饭煲', '其他']
 
@@ -18,7 +19,8 @@ Page({
     warrantyEnd: '',
     scanned: null,
     recognizing: false,
-    saving: false
+    saving: false,
+    contribute: true
   },
 
   /** 扫码识别：机身条码 → 云函数（本地型号库 → 条码 API）→ 回填表单 */
@@ -76,6 +78,10 @@ Page({
     this.recalcWarranty()
   },
 
+  onContributeChange(e) {
+    this.setData({ contribute: e.detail.value })
+  },
+
   /** 按品牌×品类规则自动计算保修年限与到期日 */
   recalcWarranty() {
     const { brand, category, purchaseDate } = this.data.form
@@ -100,47 +106,30 @@ Page({
     }
     this.setData({ saving: true })
     try {
-      const app = getApp()
-      const db = wx.cloud.database()
-      let familyId = app.globalData.familyId
-
-      // 首次建档且无家庭：自动创建个人家庭
-      if (!familyId) {
-        const openid = app.globalData.openid || 'pending'
-        const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase()
-        const fam = await db.collection('families').add({
-          data: {
-            name: '我的家',
-            ownerOpenid: openid,
-            members: [openid],
-            inviteCode,
-            createdAt: db.serverDate()
-          }
-        })
-        familyId = fam._id
-        app.globalData.familyId = familyId
-      }
-
+      // 建档统一经 familyService：服务端自动取/建家庭，并处理 UGC 型号贡献
       const years = this.data.warrantyYears || warrantyUtil.getWarrantyYears(form.brand, form.category)
-      await db.collection('devices').add({
-        data: {
-          familyId,
+      const res = await cloud.call('familyService', {
+        action: 'createDevice',
+        device: {
           brand: form.brand,
           category: form.category,
           model: form.model,
-          name: form.name || (form.brand + ' ' + form.model),
+          name: form.name,
           purchaseDate: form.purchaseDate,
           warrantyYears: years,
           warrantyEnd: warrantyUtil.calcWarrantyEnd(form.purchaseDate, form.brand, form.category, years),
-          barcode: (this.data.scanned && this.data.scanned.raw) || '',
-          createdAt: db.serverDate()
-        }
+          barcode: (this.data.scanned && this.data.scanned.raw) || ''
+        },
+        contribute: this.data.contribute
       })
 
+      if (res.data && res.data.familyId) {
+        getApp().globalData.familyId = res.data.familyId
+      }
       wx.showToast({ title: '建档成功', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 600)
     } catch (e) {
-      wx.showToast({ title: '保存失败', icon: 'none' })
+      wx.showToast({ title: '保存失败：' + (e.message || ''), icon: 'none' })
       console.warn(e)
     } finally {
       this.setData({ saving: false })

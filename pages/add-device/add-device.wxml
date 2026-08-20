@@ -52,6 +52,14 @@
       按 {{form.brand || '该品牌'}} 保修政策：保修 {{warrantyYears}} 年，到期日 {{warrantyEnd}}
     </view>
 
+    <view class="ugc-row">
+      <view class="ugc-text">
+        <view class="ugc-title">贡献型号到型号库</view>
+        <view class="ugc-sub">该型号不在库中时，建档同时帮到同型号用户</view>
+      </view>
+      <switch checked="{{contribute}}" color="#0F6E56" bindchange="onContributeChange" />
+    </view>
+
     <button class="btn-primary save-btn" bindtap="save" loading="{{saving}}" disabled="{{saving}}">保存建档</button>
   </view>
 </view>

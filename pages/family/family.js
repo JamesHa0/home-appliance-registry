@@ -14,15 +14,14 @@ Page({
   },
 
   async load() {
-    const app = getApp()
-    const familyId = app.globalData.familyId
-    if (!familyId) {
-      this.setData({ family: null, members: [] })
-      return
-    }
     try {
-      const res = await wx.cloud.database().collection('families').doc(familyId).get()
-      const f = res.data
+      // 经 familyService 获取（服务端按 openid 定位家庭，成员可见）
+      const res = await cloud.call('familyService', { action: 'getFamily' })
+      const f = res.data || null
+      if (!f) {
+        this.setData({ family: null, members: [] })
+        return
+      }
       this.setData({
         family: f,
         members: (f.members || []).map((openid, i) => ({
@@ -31,37 +30,25 @@ Page({
           short: openid.slice(-6)
         }))
       })
+      // 同步全局状态
+      getApp().globalData.familyId = f._id
+      getApp().globalData.familyName = f.name
     } catch (e) {
-      this.setData({ family: null })
+      this.setData({ family: null, members: [] })
     }
   },
 
   async createFamily() {
     this.setData({ creating: true })
     try {
-      const app = getApp()
-      const db = wx.cloud.database()
-      let openid = app.globalData.openid
-      if (!openid) {
-        const r = await cloud.call('getBarcodeInfo', { action: 'openid' })
-        openid = r.openid
-        app.globalData.openid = openid
-      }
-      const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase()
-      const fam = await db.collection('families').add({
-        data: {
-          name: '我的家',
-          ownerOpenid: openid,
-          members: [openid],
-          inviteCode,
-          createdAt: db.serverDate()
-        }
-      })
-      app.globalData.familyId = fam._id
+      const res = await cloud.call('familyService', { action: 'createFamily', name: '我的家' })
+      const f = res.data
+      getApp().globalData.familyId = f._id
+      getApp().globalData.familyName = f.name
       wx.showToast({ title: '家庭已创建', icon: 'success' })
       this.load()
     } catch (e) {
-      wx.showToast({ title: '创建失败', icon: 'none' })
+      wx.showToast({ title: e.message || '创建失败', icon: 'none' })
     } finally {
       this.setData({ creating: false })
     }
@@ -79,33 +66,14 @@ Page({
     }
     this.setData({ joining: true })
     try {
-      const app = getApp()
-      const db = wx.cloud.database()
-      let openid = app.globalData.openid
-      if (!openid) {
-        const r = await cloud.call('getBarcodeInfo', { action: 'openid' })
-        openid = r.openid
-        app.globalData.openid = openid
-      }
-      const res = await db.collection('families').where({ inviteCode: code }).limit(1).get()
-      if (!res.data.length) {
-        wx.showToast({ title: '邀请码无效', icon: 'none' })
-        return
-      }
-      const fam = res.data[0]
-      if ((fam.members || []).indexOf(openid) > -1) {
-        app.globalData.familyId = fam._id
-        wx.showToast({ title: '已在家庭中', icon: 'none' })
-      } else {
-        await db.collection('families').doc(fam._id).update({
-          data: { members: wx.cloud.database().command.push([openid]) }
-        })
-        app.globalData.familyId = fam._id
-        wx.showToast({ title: '已加入家庭', icon: 'success' })
-      }
+      const res = await cloud.call('familyService', { action: 'joinFamily', inviteCode: code })
+      const f = res.data
+      getApp().globalData.familyId = f._id
+      getApp().globalData.familyName = f.name
+      wx.showToast({ title: '已加入家庭', icon: 'success' })
       this.load()
     } catch (e) {
-      wx.showToast({ title: '加入失败', icon: 'none' })
+      wx.showToast({ title: e.message || '加入失败', icon: 'none' })
     } finally {
       this.setData({ joining: false })
     }

@@ -20,23 +20,18 @@ App({
 
   async bootstrap() {
     try {
-      const db = wx.cloud.database()
-      const res = await wx.cloud.callFunction({ name: 'getBarcodeInfo', data: { ping: true } }).catch(() => null)
-      // openid 通过云函数返回（云函数内用 cloud.getWXContext() 获取）
-      const openidRes = await wx.cloud.callFunction({
-        name: 'getBarcodeInfo',
-        data: { action: 'openid' }
+      // 统一经 familyService 获取 openid 与家庭信息（云函数内校验成员关系）
+      const res = await wx.cloud.callFunction({
+        name: 'familyService',
+        data: { action: 'getFamily' }
       })
-      if (openidRes.result && openidRes.result.openid) {
-        this.globalData.openid = openidRes.result.openid
-      }
-      // 查询该用户所属家庭
-      const famRes = await db.collection('families').where({
-        members: this.globalData.openid
-      }).limit(1).get()
-      if (famRes.data.length) {
-        this.globalData.familyId = famRes.data[0]._id
-        this.globalData.familyName = famRes.data[0].name
+      const r = res.result || {}
+      if (r.code === 0 && r.data) {
+        if (r.data.openid) this.globalData.openid = r.data.openid
+        if (r.data._id) {
+          this.globalData.familyId = r.data._id
+          this.globalData.familyName = r.data.name
+        }
       }
     } catch (e) {
       console.warn('bootstrap 失败（首次使用或未配置云环境）', e)

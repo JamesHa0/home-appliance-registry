@@ -1,4 +1,5 @@
 const format = require('../../utils/format')
+const cloud = require('../../utils/cloud')
 
 Page({
   data: {
@@ -15,23 +16,33 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      const app = getApp()
-      const familyId = app.globalData.familyId
-      if (!familyId) {
-        this.setData({ loading: false, hasFamily: false })
-        return
-      }
-      const db = wx.cloud.database()
-      const devRes = await db.collection('devices').where({ familyId }).orderBy('createdAt', 'desc').get()
-      const recallRes = await db.collection('recalls').limit(20).get()
-      const policyRes = await db.collection('policies').where({ type: 'subsidy' }).limit(5).get()
-
-      const activePolicy = policyRes.data.find(p => !p.endDate || p.endDate >= format.today())
-      const devices = devRes.data.map(d => {
+      // 设备列表经 familyService 获取（服务端校验家庭成员，家人可见彼此设备）
+      const res = await cloud.call('familyService', { action: 'getDevices' })
+      const familyId = res.data.familyId
+      const devices = (res.data.devices || []).map(d => {
         const ws = format.warrantyStatus(d.warrantyEnd)
-        const recalled = recallRes.data.some(r => r.model && d.model && r.model === d.model)
-        return Object.assign({}, d, { ws, recalled })
+        return Object.assign({}, d, { ws, recalled: false })
       })
+
+      // 召回匹配（recalls 为公开只读集合，可直接查询）
+      let recalls = []
+      try {
+        const r = await wx.cloud.database().collection('recalls').limit(20).get()
+        recalls = r.data
+      } catch (e) { /* 忽略 */ }
+      devices.forEach(d => {
+        if (d.model) {
+          d.recalled = recalls.some(x => x.model && x.model === d.model)
+        }
+      })
+
+      // 国补待办（policies 为公开只读集合）
+      let activePolicy = null
+      try {
+        const p = await wx.cloud.database().collection('policies')
+          .where({ type: 'subsidy' }).limit(5).get()
+        activePolicy = p.data.find(x => !x.endDate || x.endDate >= format.today())
+      } catch (e) { /* 忽略 */ }
 
       const todos = []
       devices.forEach(d => {
@@ -45,7 +56,7 @@ Page({
         todos.push({ type: 'policy', text: '2026 国补进行中：1 级能效家电换新最高补 1500 元', link: '/pages/policy/policy' })
       }
 
-      this.setData({ devices, todos, loading: false, hasFamily: true })
+      this.setData({ devices, todos, loading: false, hasFamily: !!familyId })
     } catch (e) {
       console.warn(e)
       this.setData({ loading: false })

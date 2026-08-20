@@ -1,4 +1,5 @@
 const format = require('../../utils/format')
+const cloud = require('../../utils/cloud')
 
 // 品牌售后入口（官方客服电话，来自品牌公开服务信息；可扩展为云数据库表）
 const AFTER_SALES = {
@@ -31,22 +32,25 @@ Page({
     if (!this.data.id) return
     this.setData({ loading: true })
     try {
-      const db = wx.cloud.database()
-      const res = await db.collection('devices').doc(this.data.id).get()
+      // 经 familyService 获取（服务端校验：仅家庭成员可读该设备）
+      const res = await cloud.call('familyService', { action: 'getDevice', id: this.data.id })
       const d = res.data
       const ws = format.warrantyStatus(d.warrantyEnd)
 
-      // 召回匹配
+      // 召回匹配（recalls 为公开只读集合）
       let recalled = false
-      const recallRes = await db.collection('recalls').where({ model: d.model }).limit(5).get()
-      recalled = recallRes.data.length > 0
+      try {
+        const recallRes = await wx.cloud.database().collection('recalls')
+          .where({ model: d.model }).limit(5).get()
+        recalled = recallRes.data.length > 0
+      } catch (e) { /* 忽略 */ }
 
       const afterSale = AFTER_SALES[d.brand] || null
 
       this.setData({ device: d, ws, recalled, afterSale, loading: false })
     } catch (e) {
       this.setData({ loading: false })
-      wx.showToast({ title: '设备不存在', icon: 'none' })
+      wx.showToast({ title: e.message || '设备不存在', icon: 'none' })
     }
   },
 
@@ -73,11 +77,11 @@ Page({
       success: async (r) => {
         if (!r.confirm) return
         try {
-          await wx.cloud.database().collection('devices').doc(this.data.id).remove()
+          await cloud.call('familyService', { action: 'deleteDevice', id: this.data.id })
           wx.showToast({ title: '已删除', icon: 'success' })
           setTimeout(() => wx.navigateBack(), 500)
         } catch (e) {
-          wx.showToast({ title: '删除失败', icon: 'none' })
+          wx.showToast({ title: e.message || '删除失败', icon: 'none' })
         }
       }
     })

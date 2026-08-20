@@ -1,4 +1,5 @@
 const format = require('../../utils/format')
+const cloud = require('../../utils/cloud')
 
 // TODO: 与云函数 sendWarrantyReminder 中的 TEMPLATE_ID 保持一致
 // 申请路径：微信公众平台 → 功能 → 订阅消息 → 选用"保修到期提醒"类模板
@@ -19,25 +20,21 @@ Page({
   async load() {
     this.setData({ loading: true })
     try {
-      const app = getApp()
-      const familyId = app.globalData.familyId
-      if (!familyId) {
-        this.setData({ devices: [], loading: false })
-        return
-      }
-      const db = wx.cloud.database()
-      const devRes = await db.collection('devices').where({ familyId }).limit(50).get()
-      const subRes = await db.collection('subscriptions')
-        .where({ openid: app.globalData.openid || 'pending', used: false })
-        .limit(100)
-        .get()
-
-      const subscribedMap = {}
-      subRes.data.forEach(s => { subscribedMap[s.deviceId] = true })
-
-      const devices = devRes.data.map(d => Object.assign({}, d, {
+      // 设备列表经 familyService 获取（家庭成员设备都可订阅）
+      const devRes = await cloud.call('familyService', { action: 'getDevices' })
+      const devices = (devRes.data.devices || []).map(d => Object.assign({}, d, {
         ws: format.warrantyStatus(d.warrantyEnd)
       }))
+
+      const app = getApp()
+      let subscribedMap = {}
+      if (app.globalData.openid) {
+        const subRes = await wx.cloud.database().collection('subscriptions')
+          .where({ openid: app.globalData.openid, used: false })
+          .limit(100)
+          .get()
+        subRes.data.forEach(s => { subscribedMap[s.deviceId] = true })
+      }
 
       this.setData({ devices, subscribedMap, loading: false })
     } catch (e) {
@@ -68,8 +65,8 @@ Page({
       const app = getApp()
       let openid = app.globalData.openid
       if (!openid) {
-        const r = await wx.cloud.callFunction({ name: 'getBarcodeInfo', data: { action: 'openid' } })
-        openid = r.result.openid
+        const r = await cloud.call('familyService', { action: 'getFamily' })
+        openid = r.data.openid
         app.globalData.openid = openid
       }
       await wx.cloud.database().collection('subscriptions').add({
