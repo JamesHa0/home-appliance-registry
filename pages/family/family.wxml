@@ -1,0 +1,50 @@
+<view class="container">
+  <!-- 已有家庭 -->
+  <block wx:if="{{family}}">
+    <view class="card">
+      <view class="card-title">{{family.name}}</view>
+      <view class="invite-row">
+        <text class="invite-label">家庭邀请码</text>
+        <text class="invite-code">{{family.inviteCode}}</text>
+        <text class="invite-copy" bindtap="copyInvite">复制</text>
+      </view>
+      <view class="invite-hint">家人打开小程序 → 家庭 → 输入邀请码即可加入，共用同一份设备清单</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">家庭成员（{{members.length}}）</view>
+      <view wx:for="{{members}}" wx:key="key" class="member-row">
+        <text class="member-dot"></text>
+        <text class="member-label">{{item.label}}</text>
+        <text class="member-short">ID {{item.short}}</text>
+      </view>
+    </view>
+
+    <button class="btn-primary" open-type="share">邀请家人加入</button>
+  </block>
+
+  <!-- 无家庭 -->
+  <block wx:else>
+    <view class="card empty">
+      <view>还没有家庭</view>
+      <view class="empty-sub">创建家庭后，全家人的家电档案和保修提醒集中一处</view>
+      <button class="btn-primary empty-btn" bindtap="createFamily" loading="{{creating}}" disabled="{{creating}}">
+        创建我的家庭
+      </button>
+    </view>
+
+    <view class="card">
+      <view class="card-title">加入已有家庭</view>
+      <input
+        class="join-input"
+        placeholder="输入 6 位家庭邀请码"
+        value="{{inviteCodeInput}}"
+        bindinput="onInviteInput"
+        maxlength="6"
+      />
+      <button class="btn-ghost join-btn" bindtap="joinFamily" loading="{{joining}}" disabled="{{joining}}">
+        加入家庭
+      </button>
+    </view>
+  </block>
+</view>

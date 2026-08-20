@@ -1,0 +1,59 @@
+<view class="container">
+  <!-- 待办提醒条 -->
+  <view wx:if="{{todos.length}}" class="todo-wrap">
+    <view
+      wx:for="{{todos}}"
+      wx:key="index"
+      class="todo-item {{item.type === 'recall' ? 'todo-red' : (item.type === 'warranty' ? 'todo-amber' : 'todo-green')}}"
+      bindtap="{{item.deviceId ? 'goDetail' : 'goPolicy'}}"
+      data-id="{{item.deviceId}}"
+    >
+      <text class="todo-dot"></text>
+      <text class="todo-text">{{item.text}}</text>
+    </view>
+  </view>
+
+  <!-- 无家庭引导 -->
+  <view wx:if="{{!loading && !hasFamily}}" class="card empty">
+    <view>还没有家庭档案</view>
+    <view class="empty-sub">先创建家庭，全家设备集中管理</view>
+    <button class="btn-primary empty-btn" bindtap="goFamily">创建家庭</button>
+  </view>
+
+  <!-- 设备列表 -->
+  <block wx:if="{{hasFamily}}">
+    <view wx:if="{{loading}}" class="empty">加载中…</view>
+    <view wx:elif="{{!devices.length}}" class="card empty">
+      <view>家里还没有家电档案</view>
+      <view class="empty-sub">点击右下角 + 扫码建档，识别品牌型号</view>
+    </view>
+
+    <view
+      wx:for="{{devices}}"
+      wx:key="_id"
+      class="card device-card"
+      bindtap="goDetail"
+      data-id="{{item._id}}"
+    >
+      <view class="device-head">
+        <text class="device-name">{{item.name}}</text>
+        <text class="tag tag-green">{{item.category}}</text>
+      </view>
+      <view class="device-model">{{item.brand}} · {{item.model}}</view>
+
+      <view wx:if="{{item.recalled}}" class="recall-banner">
+        该型号在官方召回范围，请查看详情
+      </view>
+
+      <view class="device-foot">
+        <text class="warranty {{item.ws.status === 'expired' ? 'w-red' : (item.ws.status === 'expiring' ? 'w-amber' : 'w-green')}}">
+          {{item.ws.text}}
+        </text>
+        <text class="w-date">到期 {{item.warrantyEnd || '未设置'}}</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 悬浮添加按钮 -->
+  <view class="fab" bindtap="goAdd">+</view>
+</view>

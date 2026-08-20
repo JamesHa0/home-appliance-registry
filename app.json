@@ -1,0 +1,32 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/add-device/add-device",
+    "pages/device-detail/device-detail",
+    "pages/family/family",
+    "pages/policy/policy",
+    "pages/settings/settings"
+  ],
+  "window": {
+    "backgroundColor": "#F5F6F8",
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0F6E56",
+    "navigationBarTitleText": "家电户籍",
+    "navigationBarTextStyle": "white"
+  },
+  "tabBar": {
+    "color": "#888780",
+    "selectedColor": "#0F6E56",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "家电" },
+      { "pagePath": "pages/family/family", "text": "家庭" },
+      { "pagePath": "pages/policy/policy", "text": "政策" },
+      { "pagePath": "pages/settings/settings", "text": "提醒" }
+    ]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

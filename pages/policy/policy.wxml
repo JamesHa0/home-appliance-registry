@@ -1,0 +1,35 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="empty">加载中…</view>
+
+  <!-- 政策（国补/以旧换新） -->
+  <block wx:if="{{policies.length}}">
+    <view class="section-title">政策补贴</view>
+    <view wx:for="{{policies}}" wx:key="_id" class="card policy-card">
+      <view class="policy-head">
+        <text class="policy-title">{{item.title}}</text>
+        <text class="tag {{item.active ? 'tag-green' : 'tag-gray'}}">{{item.active ? '进行中' : '已结束'}}</text>
+      </view>
+      <view class="policy-detail">{{item.detail}}</view>
+      <view class="policy-meta">
+        <text>{{item.region || '全国'}} · {{item.startDate || ''}} {{item.endDate ? '至 ' + item.endDate : ''}}</text>
+      </view>
+      <view wx:if="{{item.link}}" class="policy-link" bindtap="copyLink" data-link="{{item.link}}">
+        查看官方原文（复制链接）→
+      </view>
+    </view>
+  </block>
+
+  <!-- 召回公告 -->
+  <block wx:if="{{recalls.length}}">
+    <view class="section-title">官方召回公告</view>
+    <view wx:for="{{recalls}}" wx:key="_id" class="card recall-card">
+      <view class="recall-title">{{item.title}}</view>
+      <view wx:if="{{item.model}}" class="recall-model">型号：{{item.model}}</view>
+      <view class="recall-source">来源：市场监管总局缺陷产品召回技术中心</view>
+    </view>
+  </block>
+
+  <view wx:if="{{!loading && !policies.length && !recalls.length}}" class="empty">
+    暂无政策与召回信息，正在接入官方数据源
+  </view>
+</view>

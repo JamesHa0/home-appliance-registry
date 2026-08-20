@@ -1,0 +1,128 @@
+[
+  {
+    "brand": "美的",
+    "category": "空调",
+    "model": "KFR-35GW/N8KS1-1",
+    "name": "美的 1.5匹新一级能效空调",
+    "manualUrl": "https://www.midea.com/support"
+  },
+  {
+    "brand": "美的",
+    "category": "空调",
+    "model": "KFR-35GW/N8MHA1",
+    "name": "美的 1.5匹变频空调",
+    "manualUrl": "https://www.midea.com/support"
+  },
+  {
+    "brand": "美的",
+    "category": "洗衣机",
+    "model": "MD100V70DG",
+    "name": "美的 10公斤滚筒洗衣机",
+    "manualUrl": "https://www.midea.com/support"
+  },
+  {
+    "brand": "美的",
+    "category": "冰箱",
+    "model": "BCD-516WFGPZM",
+    "name": "美的 516升对开门冰箱",
+    "manualUrl": "https://www.midea.com/support"
+  },
+  {
+    "brand": "美的",
+    "category": "热水器",
+    "model": "F60-21BA6",
+    "name": "美的 60升电热水器",
+    "manualUrl": "https://www.midea.com/support"
+  },
+  {
+    "brand": "美的",
+    "category": "电饭煲",
+    "model": "MB-FB40Simple111",
+    "name": "美的 4L 电饭煲",
+    "manualUrl": "https://www.midea.com/support"
+  },
+  {
+    "brand": "海尔",
+    "category": "空调",
+    "model": "KFR-35GW/01KBB81U1",
+    "name": "海尔 1.5匹节能空调",
+    "manualUrl": "https://www.haier.com/support"
+  },
+  {
+    "brand": "海尔",
+    "category": "空调",
+    "model": "KFR-72LW/02ZBC33",
+    "name": "海尔 3匹柜机空调",
+    "manualUrl": "https://www.haier.com/support"
+  },
+  {
+    "brand": "海尔",
+    "category": "洗衣机",
+    "model": "EG100MATE6S",
+    "name": "海尔 10公斤滚筒洗衣机",
+    "manualUrl": "https://www.haier.com/support"
+  },
+  {
+    "brand": "海尔",
+    "category": "冰箱",
+    "model": "BCD-470WGHTD5WG9U1",
+    "name": "海尔 470升十字对开门冰箱",
+    "manualUrl": "https://www.haier.com/support"
+  },
+  {
+    "brand": "海尔",
+    "category": "热水器",
+    "model": "ES60H-C6",
+    "name": "海尔 60升电热水器",
+    "manualUrl": "https://www.haier.com/support"
+  },
+  {
+    "brand": "海尔",
+    "category": "电视",
+    "model": "65R5",
+    "name": "海尔 65寸4K电视",
+    "manualUrl": "https://www.haier.com/support"
+  },
+  {
+    "brand": "小米",
+    "category": "空调",
+    "model": "KFR-35GW/N1A3",
+    "name": "小米 1.5匹新一级能效空调",
+    "manualUrl": "https://www.mi.com/support"
+  },
+  {
+    "brand": "小米",
+    "category": "空调",
+    "model": "KFR-72LW/N1A1",
+    "name": "小米 3匹立式空调",
+    "manualUrl": "https://www.mi.com/support"
+  },
+  {
+    "brand": "小米",
+    "category": "洗衣机",
+    "model": "XQG100MJ106",
+    "name": "小米 10公斤滚筒洗衣机",
+    "manualUrl": "https://www.mi.com/support"
+  },
+  {
+    "brand": "小米",
+    "category": "冰箱",
+    "model": "BCD-501WGPM",
+    "name": "小米 501升十字冰箱",
+    "manualUrl": "https://www.mi.com/support"
+  },
+  {
+    "brand": "小米",
+    "category": "电视",
+    "model": "EA55",
+    "name": "小米电视 55寸",
+    "manualUrl": "https://www.mi.com/support"
+  },
+  {
+    "brand": "小米",
+    "category": "电视",
+    "model": "L70M5-4A",
+    "name": "小米电视 70寸",
+    "manualUrl": "https://www.mi.com/support"
+  }
+]

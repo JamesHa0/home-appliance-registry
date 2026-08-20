@@ -1,0 +1,119 @@
+/* 全局样式 - 家电户籍 */
+page {
+  --primary: #0F6E56;
+  --primary-light: #E1F5EE;
+  --warning: #854F0B;
+  --warning-light: #FAEEDA;
+  --danger: #A32D2D;
+  --danger-light: #FCEBEB;
+  --info: #185FA5;
+  --info-light: #E6F1FB;
+  --text-main: #2C2C2A;
+  --text-sub: #5F5E5A;
+  --text-hint: #888780;
+  --bg-page: #F5F6F8;
+  --card-bg: #FFFFFF;
+  --radius: 16rpx;
+
+  background: var(--bg-page);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: 28rpx;
+}
+
+.container {
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-main);
+  margin-bottom: 16rpx;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-ghost {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: var(--radius);
+  font-size: 30rpx;
+}
+
+.btn-ghost::after {
+  border: none;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.tag-green {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.tag-amber {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.tag-red {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.tag-blue {
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-hint);
+  padding: 120rpx 0;
+  font-size: 28rpx;
+}
+
+.fab {
+  position: fixed;
+  right: 40rpx;
+  bottom: 60rpx;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 64rpx;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(15, 110, 86, 0.35);
+  z-index: 10;
+}

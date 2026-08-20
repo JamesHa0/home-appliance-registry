@@ -1,0 +1,65 @@
+.section-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-sub);
+  margin: 8rpx 8rpx 16rpx;
+}
+
+.policy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.policy-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.tag-gray {
+  background: #F1EFE8;
+  color: #5F5E5A;
+}
+
+.policy-detail {
+  font-size: 26rpx;
+  color: var(--text-main);
+  line-height: 1.6;
+  margin-top: 12rpx;
+}
+
+.policy-meta {
+  font-size: 24rpx;
+  color: var(--text-hint);
+  margin-top: 12rpx;
+}
+
+.policy-link {
+  font-size: 26rpx;
+  color: var(--info);
+  margin-top: 12rpx;
+}
+
+.recall-card {
+  border-left: 6rpx solid var(--danger);
+}
+
+.recall-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.recall-model {
+  font-size: 26rpx;
+  color: var(--danger);
+  margin-top: 10rpx;
+}
+
+.recall-source {
+  font-size: 24rpx;
+  color: var(--text-hint);
+  margin-top: 10rpx;
+}

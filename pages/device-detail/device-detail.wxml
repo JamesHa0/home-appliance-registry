@@ -1,0 +1,52 @@
+<view class="container">
+  <block wx:if="{{!loading && device}}">
+    <!-- 召回警告 -->
+    <view wx:if="{{recalled}}" class="recall-banner">
+      <view class="recall-title">官方召回提醒</view>
+      <view class="recall-text">该型号（{{device.model}}）在市场监管总局缺陷产品召回范围内，请尽快查看召回公告并按指引处理。</view>
+      <view class="recall-link">官方公告：samrdprc.org.cn（搜索品牌+型号）</view>
+    </view>
+
+    <!-- 设备信息 -->
+    <view class="card">
+      <view class="device-head">
+        <text class="device-name">{{device.name}}</text>
+        <text class="tag {{device.category ? 'tag-green' : ''}}">{{device.category}}</text>
+      </view>
+      <view class="device-meta">
+        <text>{{device.brand}} · {{device.model}}</text>
+      </view>
+      <view class="device-meta">购机日 {{device.purchaseDate}}</view>
+    </view>
+
+    <!-- 保修状态 -->
+    <view class="card">
+      <view class="card-title">保修状态</view>
+      <view class="ws-big {{ws.status === 'expired' ? 'c-red' : (ws.status === 'expiring' ? 'c-amber' : 'c-green')}}">
+        {{ws.text}}
+      </view>
+      <view class="ws-line">保修到期：{{device.warrantyEnd || '未设置'}}（保修 {{device.warrantyYears}} 年）</view>
+    </view>
+
+    <!-- 服务入口 -->
+    <view class="card">
+      <view class="card-title">服务入口</view>
+      <view wx:if="{{afterSale}}" class="service-row">
+        <text class="service-label">官方客服</text>
+        <text class="service-phone" bindtap="callPhone" data-phone="{{afterSale.phone}}">{{afterSale.phone}}</text>
+      </view>
+      <view wx:else class="service-row">
+        <text class="service-label">官方客服</text>
+        <text class="service-phone">拨打 114 查询 {{device.brand}} 售后</text>
+      </view>
+      <view class="service-row">
+        <text class="service-label">说明书</text>
+        <text class="service-action" bindtap="openManual">复制官网说明书入口 →</text>
+      </view>
+    </view>
+
+    <button class="btn-ghost delete-btn" bindtap="deleteDevice">删除该设备档案</button>
+  </block>
+
+  <view wx:if="{{loading}}" class="empty">加载中…</view>
+</view>
