@@ -5,8 +5,9 @@
       wx:for="{{todos}}"
       wx:key="index"
       class="todo-item {{item.type === 'recall' ? 'todo-red' : (item.type === 'warranty' ? 'todo-amber' : 'todo-green')}}"
-      bindtap="{{item.deviceId ? 'goDetail' : 'goPolicy'}}"
+      bindtap="onTodoTap"
       data-id="{{item.deviceId}}"
+      data-type="{{item.type}}"
     >
       <text class="todo-dot"></text>
       <text class="todo-text">{{item.text}}</text>

@@ -73,7 +73,7 @@ Page({
   goEditDevice() {
     const { _id } = this.data.device
     wx.navigateTo({
-      url: `/add-device/add-device?action=edit&deviceId=${_id}`
+      url: `/pages/add-device/add-device?action=edit&deviceId=${_id}`
     })
   },
 

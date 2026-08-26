@@ -44,7 +44,7 @@ const RateLimitStore = new Map();
  *   // ... business logic
  * };
  */
-export function createRateLimiter(options = {}) {
+function createRateLimiter(options = {}) {
   const {
     windowMs = 3600000,        // 1 hour time window
     maxRequests = 5,           // 5 attempts maximum
@@ -111,7 +111,7 @@ export function createRateLimiter(options = {}) {
    *         - "操作过于频繁，请稍后再试" when currently blocked
    *         - "操作过于频繁，已暂时封禁" when threshold exceeded
    */
-  return async function(rateLimitMiddleware(event, context, onBlocked) {
+  return async function(event, context, onBlocked) {
     const key = generateKey(event);
     const now = Date.now();
 
@@ -166,7 +166,7 @@ export function createRateLimiter(options = {}) {
     // record.timestamp already updated above
     
     // Proceed to next handler
-    await context.next?.();
+    return await context();
     
     // Log warning for near-threshold situations (UX feedback opportunity)
     if (record.count === maxRequests) {
@@ -181,7 +181,7 @@ export function createRateLimiter(options = {}) {
  * @param {string} [key] - Specific key to clear, or all keys if omitted
  * @returns {Object} Statistics about cleared records
  */
-export function clearRateLimitRecords(key) {
+function clearRateLimitRecords(key) {
   let cleared = 0;
   
   if (key) {
@@ -203,7 +203,7 @@ export function clearRateLimitRecords(key) {
  * @param {string} key - The rate limit key to check
  * @returns {Object|null} Status information or null if not found
  */
-export function getRateLimitStatus(key) {
+function getRateLimitStatus(key) {
   const record = RateLimitStore.get(key);
   
   if (!record) {
@@ -229,13 +229,17 @@ export function getRateLimitStatus(key) {
 }
 
 // Expose internal state for monitoring/debugging (production safe)
-export const __METRICS__ = {
+const __METRICS__ = {
   getStoreSize: () => RateLimitStore.size,
   getRecord: (key) => RateLimitStore.get(key),
   getAllKeys: () => Array.from(RateLimitStore.keys())
 };
 
-/**
- * Default export for ES6 module compatibility
- */
-export default createRateLimiter;
+module.exports = {
+  createRateLimiter,
+  clearRateLimitRecords,
+  getRateLimitStatus,
+  __METRICS__,
+  default: createRateLimiter,
+  __clearCache__: clearRateLimitRecords
+}

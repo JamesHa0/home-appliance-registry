@@ -24,6 +24,10 @@ function addDays(base, n) {
  * 3. 下发后标记 used = true（一次性订阅授权只能发一条）
  */
 exports.main = async () => {
+  if (TEMPLATE_ID.indexOf('YOUR_') === 0) {
+    return { code: 0, skipped: true, msg: '未配置订阅模板，已跳过' }
+  }
+
   const today = fmt(new Date())
   const end = addDays(today, 7)
 

@@ -75,5 +75,10 @@ Page({
   },
   goPolicy() {
     wx.switchTab({ url: '/pages/policy/policy' })
+  },
+  onTodoTap(e) {
+    const { type, id } = e.currentTarget.dataset
+    if (type === 'policy') return this.goPolicy()
+    if (id) return this.goDetail(e)
   }
 })

@@ -53,11 +53,11 @@ function parseRecalls(html) {
  * @param {number} pageNum - 页码（当前仅支持单页抓取）
  * @returns {Promise<Array>} 召回列表
  */
-async function scrapePages(pageNum = 1) {
+async function scrapePage(url, pageNum) {
   try {
     console.log(`[RecallScrape][Page${pageNum}] Starting to fetch page...`)
     
-    const html = await httpsGet(RECALL_LIST_URL)
+    const html = await httpsGet(url)
     const recalls = parseRecalls(html)
     
     console.log(`[RecallScrape][Page${pageNum}] Successfully parsed ${recalls.length} recalls`)
@@ -93,7 +93,7 @@ async function scrapePages(pageNum = 1) {
       console.error('[RecallScrape] Failed to log error:', logError.message)
     }
     
-    throw error
+    return []
   }
 }
 
@@ -127,8 +127,13 @@ exports.main = async (event) => {
       startTime: new Date().toISOString() 
     })
     
-    // 步骤 1: 爬取页面
-    const allRecalls = await scrapePages(1)
+    // 步骤 1: 分页爬取（单页失败不中断；分页 URL 格式待确认，暂抓首页）
+    const MAX_PAGES = 1
+    let allRecalls = []
+    for (let p = 1; p <= MAX_PAGES; p++) {
+      const url = p === 1 ? RECALL_LIST_URL : `${RECALL_LIST_URL}index_${p}.html`
+      allRecalls = allRecalls.concat(await scrapePage(url, p))
+    }
     
     // 步骤 2: 去重处理
     const uniqueRecallsMap = new Map()

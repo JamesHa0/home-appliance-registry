@@ -14,6 +14,14 @@ function fail(msg, code) {
   return { code: code || 1, msg }
 }
 
+function addYears(dateStr, years) {
+  const d = new Date(String(dateStr).replace(/-/g, '/'))
+  d.setFullYear(d.getFullYear() + (Number(years) || 0))
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
 /** 生成 6 位邀请码（含校验位）：前 5 位随机 + 第 6 位校验 */
 function genInviteCode() {
   const baseChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // 40 字符集，无易混淆字符
@@ -32,7 +40,7 @@ function genInviteCode() {
   const checkDigit = baseChars[sum % 37]
   code += checkDigit
   
-  console.log('[FamilyService] Generated invite code:', code)
+  console.log('[FamilyService] Generated invite code:', code.slice(0, 2) + '****')
   return code
 }
 
@@ -120,7 +128,7 @@ exports.main = async (event) => {
           const code = String(event.inviteCode || '').trim().toUpperCase()
           
           // Apply rate limiting
-          await joinRateLimiter(
+          const result = await joinRateLimiter(
             { openid: OPENID, clientIP: event.clientIP },
             async () => {
               // Find family by invite code
@@ -168,7 +176,8 @@ exports.main = async (event) => {
               })
             }
           )
-          
+          return ok(result)
+
         } catch (error) {
           // Distinguish between rate limit errors and business logic errors
           if (error.message.includes('操作过于频繁')) {
@@ -187,6 +196,7 @@ exports.main = async (event) => {
         const res = await db.collection('devices')
           .where({ familyId: fam._id })
           .orderBy('createdAt', 'desc')
+          .limit(100)
           .get()
         return ok({ familyId: fam._id, devices: res.data })
       }
@@ -219,16 +229,19 @@ exports.main = async (event) => {
 
         // UGC：用户勾选贡献且型号库无此 brand+model 时写入（source=ugc）
         if (event.contribute && d.brand && d.model) {
+          const ugcBrand = String(d.brand).trim().slice(0, 20)
+          const ugcModel = String(d.model).trim().slice(0, 50)
+          const ugcName = String(d.name || '').trim().slice(0, 30)
           const dup = await db.collection('models')
-            .where({ brand: d.brand, model: d.model })
+            .where({ brand: ugcBrand, model: ugcModel })
             .count()
           if (dup.total === 0) {
             await db.collection('models').add({
               data: {
-                brand: d.brand,
-                category: d.category || '',
-                model: d.model,
-                name: d.name || (d.brand + ' ' + d.model),
+                brand: ugcBrand,
+                category: String(d.category || '').trim().slice(0, 20),
+                model: ugcModel,
+                name: ugcName || (ugcBrand + ' ' + ugcModel),
                 manualUrl: '',
                 source: 'ugc',
                 contributedBy: OPENID,
@@ -265,19 +278,9 @@ exports.main = async (event) => {
         
         // 如果 purchaseDate 或 warrantyYears 被修改，需要重新计算 warrantyEnd
         if (patch.purchaseDate || patch.warrantyYears) {
-          const newBrand = patch.brand || device.brand
-          const newCategory = patch.category || device.category
           const newPurchaseDate = patch.purchaseDate || device.purchaseDate
           const newWarrantyYears = patch.warrantyYears || device.warrantyYears
-          
-          // 调用工具函数重新计算保修到期日
-          try {
-            const warrantyUtil = require('../../utils/warranty.js')
-            patch.warrantyEnd = warrantyUtil.calcWarrantyEnd(newPurchaseDate, newBrand, newCategory, newWarrantyYears)
-          } catch (e) {
-            console.error('计算保修失败:', e)
-            // 如果计算失败，保留用户传入的值
-          }
+          patch.warrantyEnd = addYears(newPurchaseDate, newWarrantyYears)
         }
         
         await db.collection('devices').doc(event.id).update({ data: patch })

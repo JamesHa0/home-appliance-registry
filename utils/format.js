@@ -16,7 +16,7 @@ function formatDate(d) {
 
 /** 今天 'YYYY-MM-DD' */
 function today() {
-  return formatDate(new Date())
+  return formatDate(new Date(Date.now()))
 }
 
 /** 距离目标日期的天数（目标 - 今天，可为负） */
@@ -33,10 +33,10 @@ function daysTo(targetDate) {
 function warrantyStatus(warrantyEnd) {
   if (!warrantyEnd) return { status: 'unknown', text: '未设置保修' }
   const d = daysTo(warrantyEnd)
+  if (isNaN(d)) return { status: 'unknown', text: '未设置保修' }
   if (d < 0) return { status: 'expired', text: `已过保 ${-d} 天` }
   if (d === 0) return { status: 'expiring', text: '今天到期' }
   if (d <= 7) return { status: 'expiring', text: `保修剩 ${d} 天` }
-  if (d <= 30) return { status: 'expiring', text: `保修剩 ${d} 天` }
   return { status: 'in-warranty', text: `保修剩 ${d} 天` }
 }
 
