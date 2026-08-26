@@ -2,6 +2,22 @@
   width: 100%;
 }
 
+.scan-btn[disabled] {
+  opacity: 0.6;
+}
+
+.edit-banner {
+  background-color: #e8f5e9;
+  padding: 16rpx 24rpx;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: #07c160;
+  font-weight: 500;
+}
+
 .scan-hint {
   font-size: 24rpx;
   color: var(--text-hint);

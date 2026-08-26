@@ -1,7 +1,12 @@
 <view class="container">
   <!-- 扫码识别 -->
   <view class="card scan-card">
-    <button class="btn-primary scan-btn" bindtap="scan" loading="{{recognizing}}" disabled="{{recognizing}}">
+    <view class="edit-banner" wx:if="{{isEditMode}}">
+      <icon type="info" size="16" color="#07c160"/>
+      <text>正在编辑设备信息</text>
+    </view>
+    
+    <button class="btn-primary scan-btn" bindtap="scan" loading="{{recognizing}}" disabled="{{recognizing || isEditMode}}">
       扫机身码 / 条码识别
     </button>
     <view class="scan-hint">扫家电外包装条码或机身铭牌码，自动识别品牌型号</view>

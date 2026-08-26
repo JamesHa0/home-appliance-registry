@@ -59,11 +59,23 @@ Page({
   },
 
   async joinFamily() {
-    const code = this.data.inviteCodeInput
+    const code = this.data.inviteCodeInput.trim().toUpperCase()
+    
+    // Validate format before sending to server
+    const invitePattern = /^[A-HJ-NP-Za-km-z0-9]{6}$/
+    if (!invitePattern.test(code)) {
+      wx.showToast({
+        title: '邀请码格式不正确',
+        icon: 'none'
+      })
+      return
+    }
+    
     if (!code) {
       wx.showToast({ title: '请输入邀请码', icon: 'none' })
       return
     }
+    
     this.setData({ joining: true })
     try {
       const res = await cloud.call('familyService', { action: 'joinFamily', inviteCode: code })

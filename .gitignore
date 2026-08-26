@@ -1,6 +1,16 @@
 node_modules/
 project.private.config.json
 config.local.js
-.DS_Store
+.env
+.env.local
 *.log
+.DS_Store
+dist/
+coverage/
+.jest/
+**/tests/
+**/*.test.js
+**/*.spec.js
+**/e2e/
+.qoder/
 miniprogram_npm/

@@ -1,3 +1,7 @@
+/**
+ * 设备管理页面 - 支持新建和编辑双模式
+ * @author Qoder
+ */
 const warrantyUtil = require('../../utils/warranty')
 const format = require('../../utils/format')
 const cloud = require('../../utils/cloud')
@@ -6,6 +10,8 @@ const CATEGORIES = ['空调', '冰箱', '洗衣机', '电视', '热水器', '油
 
 Page({
   data: {
+    isEditMode: false, // 是否处于编辑模式
+    editDeviceId: null, // 正在编辑的设备 ID
     categories: CATEGORIES,
     categoryIndex: -1,
     form: {
@@ -23,8 +29,92 @@ Page({
     contribute: true
   },
 
-  /** 扫码识别：机身条码 → 云函数（本地型号库 → 条码 API）→ 回填表单 */
+  /**
+   * 页面加载 - 检测是否在编辑模式下
+   * @param {Object} options - 路由参数
+   */
+  onLoad(options) {
+    if (options.action === 'edit') {
+      this.setData({ 
+        isEditMode: true,
+        editDeviceId: options.deviceId 
+      })
+      this.loadDeviceData() // 加载现有设备数据
+    } else {
+      this.initForm() // 初始化新设备表单
+    }
+  },
+
+  /** 初始化表单数据（新建模式） */
+  initForm() {
+    this.setData({
+      isEditMode: false,
+      editDeviceId: null,
+      form: {
+        brand: '',
+        category: '',
+        model: '',
+        name: '',
+        purchaseDate: format.today()
+      },
+      warrantyYears: 0,
+      warrantyEnd: '',
+      scanned: null
+    })
+  },
+
+  /**
+   * 加载设备数据用于编辑模式
+   * 从 familyService 获取完整设备信息并填充表单
+   */
+  loadDeviceData() {
+    const { editDeviceId } = this.data
+    wx.showLoading({ title: '加载中...' })
+    
+    cloud.call('familyService', {
+      action: 'getDevice',
+      deviceId: editDeviceId
+    })
+    .then(res => {
+      const device = res.data
+      const catIndex = CATEGORIES.indexOf(device.category)
+      
+      // 填充表单
+      this.setData({
+        'form.brand': device.brand,
+        'form.category': device.category || '',
+        'form.model': device.model,
+        'form.name': device.name || `${device.brand}${device.category ? ' ' + device.category : ''}`,
+        'form.purchaseDate': device.purchaseDate,
+        categoryIndex: catIndex >= 0 ? catIndex : -1,
+        warrantyYears: device.warrantyYears || 0,
+        warrantyEnd: device.warrantyEnd || ''
+      })
+      
+      wx.hideLoading()
+    })
+    .catch(err => {
+      console.error('加载设备数据失败:', err)
+      wx.hideLoading()
+      wx.showToast({
+        title: err.message || '加载设备信息失败',
+        icon: 'none'
+      })
+      setTimeout(() => wx.navigateBack(), 2000)
+    })
+  },
+
+  /** 扫码识别：机身码 → 云函数（本地型号库 → 条码 API）→ 回填表单 */
   async scan() {
+    // 编辑模式下禁止重新扫码
+    if (this.data.isEditMode) {
+      wx.showToast({
+        title: '编辑模式下无法重新扫描',
+        icon: 'none'
+      })
+      return
+    }
+    
     this.setData({ recognizing: true })
     try {
       const res = await new Promise((resolve, reject) => {
@@ -94,8 +184,12 @@ Page({
     }
   },
 
+  /**
+   * 保存设备信息 - 支持新建和编辑两种模式
+   * @returns {Promise<void>}
+   */
   async save() {
-    const { form } = this.data
+    const { form, isEditMode } = this.data
     if (!form.brand || !form.category || !form.model) {
       wx.showToast({ title: '请补全品牌/品类/型号', icon: 'none' })
       return
@@ -104,12 +198,14 @@ Page({
       wx.showToast({ title: '请选择购机日期', icon: 'none' })
       return
     }
+    
     this.setData({ saving: true })
     try {
-      // 建档统一经 familyService：服务端自动取/建家庭，并处理 UGC 型号贡献
       const years = this.data.warrantyYears || warrantyUtil.getWarrantyYears(form.brand, form.category)
-      const res = await cloud.call('familyService', {
-        action: 'createDevice',
+      const warrantyEnd = warrantyUtil.calcWarrantyEnd(form.purchaseDate, form.brand, form.category, years)
+      
+      let action = 'createDevice'
+      const params = {
         device: {
           brand: form.brand,
           category: form.category,
@@ -117,19 +213,43 @@ Page({
           name: form.name,
           purchaseDate: form.purchaseDate,
           warrantyYears: years,
-          warrantyEnd: warrantyUtil.calcWarrantyEnd(form.purchaseDate, form.brand, form.category, years),
+          warrantyEnd,
           barcode: (this.data.scanned && this.data.scanned.raw) || ''
         },
         contribute: this.data.contribute
-      })
-
+      }
+      
+      if (isEditMode) {
+        // 更新模式：只允许更新的字段
+        action = 'updateDevice'
+        params.id = this.data.editDeviceId
+        params.brand = form.brand
+        params.category = form.category
+        params.model = form.model
+        params.name = form.name
+        params.purchaseDate = form.purchaseDate
+        params.warrantyYears = years
+        params.warrantyEnd = warrantyEnd
+        delete params.contribute // 更新模式不需要 UGC 贡献
+      }
+      
+      const res = await cloud.call('familyService', params)
+      
       if (res.data && res.data.familyId) {
         getApp().globalData.familyId = res.data.familyId
       }
-      wx.showToast({ title: '建档成功', icon: 'success' })
-      setTimeout(() => wx.navigateBack(), 600)
+      
+      wx.showToast({
+        title: isEditMode ? '修改成功' : '建档成功',
+        icon: 'success',
+        duration: 1500
+      })
+      setTimeout(() => wx.navigateBack(), 1200)
     } catch (e) {
-      wx.showToast({ title: '保存失败：' + (e.message || ''), icon: 'none' })
+      wx.showToast({
+        title: '保存失败：' + (e.message || ''),
+        icon: 'none'
+      })
       console.warn(e)
     } finally {
       this.setData({ saving: false })

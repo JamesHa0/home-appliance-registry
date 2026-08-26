@@ -90,3 +90,26 @@
   color: var(--danger);
   background: var(--danger-light);
 }
+
+/* Action buttons container */
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.edit-btn {
+  flex: 1;
+  background-color: #09B;
+  color: white;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  padding: 20rpx 0;
+  transition: all 0.3s ease;
+}
+
+.edit-btn:active {
+  opacity: 0.8;
+  transform: scale(0.98);
+}

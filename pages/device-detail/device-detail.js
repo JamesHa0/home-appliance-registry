@@ -69,6 +69,14 @@ Page({
     })
   },
 
+  /** 跳转到编辑页面 */
+  goEditDevice() {
+    const { _id } = this.data.device
+    wx.navigateTo({
+      url: `/add-device/add-device?action=edit&deviceId=${_id}`
+    })
+  },
+
   deleteDevice() {
     wx.showModal({
       title: '删除设备',

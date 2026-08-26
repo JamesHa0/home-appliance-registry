@@ -1,5 +1,7 @@
 const cloud = require('wx-server-sdk')
 
+require('./middleware/rateLimit') // Load rate limiter middleware
+
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
@@ -12,14 +14,26 @@ function fail(msg, code) {
   return { code: code || 1, msg }
 }
 
-/** 生成 6 位大写邀请码（剔除易混淆字符 0/O/1/I） */
+/** 生成 6 位邀请码（含校验位）：前 5 位随机 + 第 6 位校验 */
 function genInviteCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let s = ''
-  for (let i = 0; i < 6; i++) {
-    s += chars[Math.floor(Math.random() * chars.length)]
+  const baseChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // 40 字符集，无易混淆字符
+  
+  // 生成 5 个随机字符
+  let code = ''
+  for (let i = 0; i < 5; i++) {
+    code += baseChars.charAt(Math.floor(Math.random() * baseChars.length))
   }
-  return s
+  
+  // 计算校验位（mod 37）
+  let sum = 0
+  for (let i = 0; i < 5; i++) {
+    sum += baseChars.indexOf(code[i])
+  }
+  const checkDigit = baseChars[sum % 37]
+  code += checkDigit
+  
+  console.log('[FamilyService] Generated invite code:', code)
+  return code
 }
 
 /** 查询调用者所在家庭（members 含 openid） */
@@ -95,18 +109,75 @@ exports.main = async (event) => {
       }
 
       case 'joinFamily': {
-        const code = String(event.inviteCode || '').trim().toUpperCase()
-        if (!code) return fail('请输入邀请码')
-        const res = await db.collection('families').where({ inviteCode: code }).limit(1).get()
-        if (!res.data.length) return fail('邀请码无效')
-        const fam = res.data[0]
-        const members = fam.members || []
-        if (members.indexOf(OPENID) === -1) {
-          await db.collection('families').doc(fam._id).update({
-            data: { members: _.push([OPENID]) }
+        try {
+          // Rate limiter for join family (5 attempts per hour, 5 min block)
+          const joinRateLimiter = require('./middleware/rateLimit').createRateLimiter({
+            windowMs: 3600000,       // 1 hour window
+            maxRequests: 5,          // max 5 attempts
+            blockDuration: 300000    // 5 minute block
           })
+          
+          const code = String(event.inviteCode || '').trim().toUpperCase()
+          
+          // Apply rate limiting
+          await joinRateLimiter(
+            { openid: OPENID, clientIP: event.clientIP },
+            async () => {
+              // Find family by invite code
+              const res = await db.collection('families')
+                .where({ inviteCode: code })
+                .limit(1)
+                .get()
+              
+              if (!res.data.length) {
+                throw new Error('邀请码不存在或已过期')
+              }
+              
+              const fam = res.data[0]
+              const members = fam.members || []
+              
+              // Check if already member
+              if (members.includes(OPENID)) {
+                throw new Error('您已经加入该家庭')
+              }
+              
+              // Add member to family
+              await db.collection('families').doc(fam._id).update({
+                data: { members: _.push([OPENID]) }
+              })
+              
+              console.log('[FamilyService] Member joined successfully:', {
+                familyId: fam._id,
+                openid: OPENID.slice(-8),
+                inviteCode: code
+              })
+              
+              return {
+                _id: fam._id,
+                name: fam.name,
+                ownerOpenid: fam.ownerOpenid,
+                inviteCode: fam.inviteCode,
+                members: members.concat(OPENID)
+              }
+            },
+            async () => {
+              // Callback when blocked
+              console.warn('[FamilyService] Join attempt blocked due to rate limit:', {
+                openid: OPENID.slice(-8),
+                clientIP: event.clientIP || 'unknown'
+              })
+            }
+          )
+          
+        } catch (error) {
+          // Distinguish between rate limit errors and business logic errors
+          if (error.message.includes('操作过于频繁')) {
+            return fail(error.message)
+          }
+          
+          // For other errors, return detailed message
+          return fail(error.message || '加入家庭失败')
         }
-        return ok({ _id: fam._id, name: fam.name, ownerOpenid: fam.ownerOpenid, inviteCode: fam.inviteCode, members: members.concat(OPENID) })
       }
 
       // ---------- 设备 ----------
@@ -169,18 +240,53 @@ exports.main = async (event) => {
         return ok({ id: addRes._id, familyId: fam._id })
       }
 
+      /**
+       * 更新设备信息 - 编辑模式核心逻辑
+       * 验证权限、只更新允许的字段、自动重新计算保修到期日
+       */
       case 'updateDevice': {
         const fam = await getFamilyByOpenid(OPENID)
         if (!fam) return fail('请先创建或加入家庭')
         if (!event.id) return fail('缺少设备 id')
-        await assertDeviceBelongs(event.id, fam._id)
+        
+        const device = await assertDeviceBelongs(event.id, fam._id)
+        
+        // 允许更新的字段列表
         const patch = {}
-        const allow = ['name', 'category', 'purchaseDate', 'warrantyYears', 'warrantyEnd']
+        const allow = ['name', 'category', 'model', 'brand', 'purchaseDate', 'warrantyYears', 'warrantyEnd']
+        
         allow.forEach(k => {
-          if (event[k] !== undefined && event[k] !== null) patch[k] = event[k]
+          if (event[k] !== undefined && event[k] !== null) {
+            patch[k] = event[k]
+          }
         })
+        
         if (!Object.keys(patch).length) return fail('没有可更新字段')
+        
+        // 如果 purchaseDate 或 warrantyYears 被修改，需要重新计算 warrantyEnd
+        if (patch.purchaseDate || patch.warrantyYears) {
+          const newBrand = patch.brand || device.brand
+          const newCategory = patch.category || device.category
+          const newPurchaseDate = patch.purchaseDate || device.purchaseDate
+          const newWarrantyYears = patch.warrantyYears || device.warrantyYears
+          
+          // 调用工具函数重新计算保修到期日
+          try {
+            const warrantyUtil = require('../../utils/warranty.js')
+            patch.warrantyEnd = warrantyUtil.calcWarrantyEnd(newPurchaseDate, newBrand, newCategory, newWarrantyYears)
+          } catch (e) {
+            console.error('计算保修失败:', e)
+            // 如果计算失败，保留用户传入的值
+          }
+        }
+        
         await db.collection('devices').doc(event.id).update({ data: patch })
+        
+        console.log('[FamilyService] Device updated:', {
+          deviceId: event.id,
+          updates: patch
+        })
+        
         return ok(true)
       }
 

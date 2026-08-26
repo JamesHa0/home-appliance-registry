@@ -45,7 +45,15 @@
       </view>
     </view>
 
-    <button class="btn-ghost delete-btn" bindtap="deleteDevice">删除该设备档案</button>
+    <view class="action-buttons">
+      <button class="btn-primary edit-btn" bindtap="goEditDevice">
+        <text>编辑信息</text>
+      </button>
+      
+      <button class="btn-ghost delete-btn" bindtap="deleteDevice">
+        <text>删除该设备档案</text>
+      </button>
+    </view>
   </block>
 
   <view wx:if="{{loading}}" class="empty">加载中…</view>
