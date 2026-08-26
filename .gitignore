@@ -16,8 +16,7 @@ coverage/
 miniprogram_npm/
 .workbuddy/
 
-# 非代码/测试/数据文件:本地保留,不进版本库
+# 非代码/测试文件:本地保留,不进版本库
 docs/
 reviews/
-db/
 jest.config.js
