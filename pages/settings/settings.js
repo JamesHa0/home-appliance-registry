@@ -1,9 +1,9 @@
 const format = require('../../utils/format')
 const cloud = require('../../utils/cloud')
 
-// TODO: 与云函数 sendWarrantyReminder 中的 TEMPLATE_ID 保持一致
-// 申请路径：微信公众平台 → 功能 → 订阅消息 → 选用"保修到期提醒"类模板
-const TEMPLATE_ID = 'YOUR_WARRANTY_TEMPLATE_ID'
+// 与云函数 sendWarrantyReminder 中的 TEMPLATE_ID 保持一致
+// 模板「保修到期提醒」：物品名称(thing8) / 到期时间(time7) / 剩余天数(number12) / 温馨提示(thing5)
+const TEMPLATE_ID = '0URiO7JaaTCkQFaIaEfsfX4ZbxifBUuAthJt0VpWcrA'
 
 Page({
   data: {
@@ -50,6 +50,11 @@ Page({
       return
     }
     const deviceId = e.currentTarget.dataset.id
+    // 防重：已订阅状态直接拦截（按钮 disabled 之外的兜底）
+    if (this.data.subscribedMap[deviceId]) {
+      wx.showToast({ title: '已订阅该设备提醒', icon: 'none' })
+      return
+    }
     try {
       const res = await new Promise((resolve, reject) => {
         wx.requestSubscribeMessage({

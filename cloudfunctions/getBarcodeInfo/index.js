@@ -5,17 +5,21 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
 // 第三方条码查询 API（中国物品编码中心官方注册库直连封装，见研究报告 5.2 节）
-// TODO: 在华为云市场 / APIZero 等购买后填入 Key；留空则跳过在线查询，仅用本地型号库
+// APIZero「商品条码查询PRO」：鉴权为 query 参数 key=，见 https://apizero.cn/aidocs/barcode-gs1
+// 部署时在云函数「配置 → 环境变量」设置 BARCODE_API_KEY（如 sk_xxx），留空则跳过在线查询，仅用本地型号库
 const BARCODE_API_URL = 'https://v1.apizero.cn/api/barcode-gs1'
-const BARCODE_API_KEY = ''
+const BARCODE_API_KEY = process.env.BARCODE_API_KEY || ''
 
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const req = https.get(url, (res) => {
       let data = ''
       res.on('data', (c) => { data += c })
       res.on('end', () => resolve(data))
-    }).on('error', reject)
+    })
+    // 5s 超时：API 挂起时快速失败走兜底，不拖到云函数默认超时
+    req.setTimeout(5000, () => { req.destroy(new Error('timeout')) })
+    req.on('error', reject)
   })
 }
 
@@ -83,20 +87,46 @@ exports.main = async (event) => {
     }
   }
 
-  // 2. 在线条码反查（品牌 + 品类 + 商品名，不保证含型号）
+  // 2. 在线条码反查（GS1 官方注册库：品牌 + 品类 + 商品名，不保证含型号）
   if (BARCODE_API_KEY) {
     try {
-      const raw = await httpsGet(`${BARCODE_API_URL}?code=${encodeURIComponent(code)}`)
+      const raw = await httpsGet(`${BARCODE_API_URL}?code=${encodeURIComponent(code)}&key=${BARCODE_API_KEY}`)
       const json = JSON.parse(raw)
       const d = json.data || {}
-      return {
-        code: 0,
-        found: true,
-        source: 'barcode-api',
-        brand: d.brand || d.厂商 || '',
-        category: d.category || d.分类 || '',
-        model: d.model || '',
-        name: d.productName || d.产品名称 || ''
+      // found=false（未注册/进口条码）时业务字段为 null，直接走兜底
+      if (d.found !== false) {
+        const brand = d.brand || d.manufacturer || ''
+        const category = d.category || d.general_name || ''
+        const name = d.name || d.general_name || ''
+        // 回写 models 缓存：同码二次扫描直接本地命中，省 API 额度（GS1 无型号，model 留空）
+        const cached = await db.collection('models')
+          .where({ barcode: code })
+          .limit(1)
+          .get()
+          .catch(() => ({ data: [] }))
+        if (!cached.data.length) {
+          await db.collection('models').add({
+            data: {
+              brand: String(brand).slice(0, 20),
+              category: String(category).slice(0, 20),
+              model: '',
+              name: String(name).slice(0, 30),
+              barcode: String(code).slice(0, 20),
+              manualUrl: '',
+              source: 'barcode-api',
+              createdAt: db.serverDate()
+            }
+          }).catch(e => console.warn('barcode cache write fail', e.message))
+        }
+        return {
+          code: 0,
+          found: true,
+          source: 'barcode-api',
+          brand,
+          category,
+          model: '',
+          name
+        }
       }
     } catch (e) {
       console.warn('barcode api error', e.message)

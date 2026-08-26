@@ -23,6 +23,7 @@
       class="{{subscribedMap[item._id] ? 'btn-ghost sub-btn done' : 'btn-primary sub-btn'}}"
       data-id="{{item._id}}"
       bindtap="subscribe"
+      disabled="{{subscribedMap[item._id]}}"
     >
       {{subscribedMap[item._id] ? '已订阅' : '订阅提醒'}}
     </button>

@@ -4,8 +4,8 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
-// TODO: 在微信公众平台「功能 → 订阅消息」申请"保修到期提醒"类模板后替换
-const TEMPLATE_ID = 'YOUR_WARRANTY_TEMPLATE_ID'
+// 订阅模板「保修到期提醒」：物品名称(thing8) / 到期时间(time7) / 剩余天数(number12) / 温馨提示(thing5)
+const TEMPLATE_ID = '0URiO7JaaTCkQFaIaEfsfX4ZbxifBUuAthJt0VpWcrA'
 
 function pad(n) { return n < 10 ? '0' + n : '' + n }
 function fmt(d) {
@@ -15,6 +15,14 @@ function addDays(base, n) {
   const d = new Date(base)
   d.setDate(d.getDate() + n)
   return fmt(d)
+}
+/** 距离到期日还有多少天（到期日当天=0，已过期取 0 并可由提示语区分） */
+function daysUntil(dateStr) {
+  const p = dateStr.split('-').map(Number)
+  const target = new Date(p[0], p[1] - 1, p[2])
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.max(0, Math.round((target - today) / 86400000))
 }
 
 /**
@@ -53,9 +61,10 @@ exports.main = async () => {
           templateId: TEMPLATE_ID,
           page: 'pages/device-detail/device-detail?id=' + dev._id,
           data: {
-            thing1: { value: (dev.name || dev.model || '家电').slice(0, 20) },
-            time2: { value: dev.warrantyEnd },
-            thing3: { value: '保修即将到期，请在到期前联系售后检查' }
+            thing8: { value: (dev.name || dev.model || '家电').slice(0, 20) },
+            time7: { value: dev.warrantyEnd },
+            number12: { value: daysUntil(dev.warrantyEnd) },
+            thing5: { value: daysUntil(dev.warrantyEnd) === 0 ? '保修已到期，请尽快联系售后' : '保修即将到期，请及时联系售后' }
           }
         })
         await db.collection('subscriptions').doc(s._id).update({
@@ -65,6 +74,11 @@ exports.main = async () => {
       } catch (e) {
         failed++
         console.error('send fail', s._id, e)
+        // 失败重试上限：连续 3 次失败标记 invalid，避免永久失败记录反复触发
+        const failCount = (s.failCount || 0) + 1
+        await db.collection('subscriptions').doc(s._id).update({
+          data: { failCount, ...(failCount >= 3 ? { invalid: true } : {}) }
+        }).catch(() => {})
       }
     }
   }

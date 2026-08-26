@@ -133,12 +133,12 @@ Page({
           scanned: r,
           'form.brand': r.brand,
           'form.category': r.category,
-          'form.model': r.model || '',
+          'form.model': r.model || '', // 本地库命中回填真实型号；在线 GS1 反查无型号（后端返回空），留空由用户确认
           'form.name': r.name || '',
           categoryIndex: idx >= 0 ? idx : -1
         })
         this.recalcWarranty()
-        wx.showToast({ title: '识别成功', icon: 'success' })
+        wx.showToast({ title: '识别成功，请确认型号', icon: 'none' })
       } else {
         this.setData({ scanned: { raw: res.result, found: false } })
         wx.showToast({ title: r.msg || '未识别，请手动补全', icon: 'none' })

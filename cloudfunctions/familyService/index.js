@@ -242,6 +242,7 @@ exports.main = async (event) => {
                 category: String(d.category || '').trim().slice(0, 20),
                 model: ugcModel,
                 name: ugcName || (ugcBrand + ' ' + ugcModel),
+                barcode: String(d.barcode || '').trim().slice(0, 20),
                 manualUrl: '',
                 source: 'ugc',
                 contributedBy: OPENID,
@@ -299,6 +300,11 @@ exports.main = async (event) => {
         if (!event.id) return fail('缺少设备 id')
         await assertDeviceBelongs(event.id, fam._id)
         await db.collection('devices').doc(event.id).remove()
+        // 级联清理该设备的订阅记录，避免残留 used:false 记录触发无效发送
+        await db.collection('subscriptions')
+          .where({ deviceId: event.id })
+          .remove()
+          .catch(() => {})
         return ok(true)
       }
 
