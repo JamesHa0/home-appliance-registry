@@ -220,6 +220,20 @@
   justify-content: space-between;
 }
 
+/* 创建者解散家庭：小号文本链接入口，降低误触 */
+.dissolve-row {
+  margin-top: 28rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.dissolve-link {
+  font-size: 24rpx;
+  color: #888780;
+  text-decoration: underline;
+  padding: 8rpx 16rpx;
+}
+
 .leave-hint {
   font-size: 26rpx;
   color: #ff7b00;

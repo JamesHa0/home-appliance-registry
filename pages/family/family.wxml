@@ -40,10 +40,9 @@
       <button class="btn-danger leave-btn" bindtap="leaveFamily">退出家庭</button>
     </view>
 
-    <!-- 创建者：解散家庭（解除 owner 死锁：joinFamily 拒绝多家庭 + leaveFamily 拒绝 owner 后，owner 的唯一出口） -->
-    <view wx:if="{{isOwner}}" class="leave-family-row">
-      <text class="leave-hint">家庭不再使用？解散后设备记录将全部删除</text>
-      <button class="btn-danger leave-btn" bindtap="dissolveFamily">解散家庭</button>
+    <!-- 创建者：解散家庭入口做小为文本链接，降低误触（owner 的唯一出口） -->
+    <view wx:if="{{isOwner}}" class="dissolve-row">
+      <text class="dissolve-link" bindtap="dissolveFamily">家庭不再使用？</text>
     </view>
   </block>
 

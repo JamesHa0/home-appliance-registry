@@ -225,7 +225,7 @@ Page({
   async dissolveFamily() {
     wx.showModal({
       title: '解散家庭',
-      content: '将删除该家庭的全部设备记录与保修提醒订阅，且不可恢复。确定解散吗？',
+      content: '解散后设备记录将全部删除。是否解散家庭？',
       confirmText: '解散',
       confirmColor: '#ff4d4f',
       success: async (res) => {
