@@ -1,0 +1,19 @@
+<view wx:if="{{show}}" class="privacy-mask">
+  <view class="privacy-card">
+    <view class="privacy-title">隐私保护提示</view>
+    <view class="privacy-desc">
+      使用扫码识别、选择头像、复制邀请码等功能，需要你先同意
+      <text class="privacy-link" catchtap="openContract">{{contractName || '《小程序隐私保护指引》'}}</text>
+      。同意后仅用于上述功能，不会用于其他用途。
+    </view>
+    <view class="privacy-btns">
+      <button class="privacy-btn privacy-btn-ghost" bindtap="handleDisagree">拒绝</button>
+      <button
+        id="agree-btn"
+        class="privacy-btn privacy-btn-primary"
+        open-type="agreePrivacyAuthorization"
+        bindagreeprivacyauthorization="handleAgree"
+      >同意</button>
+    </view>
+  </view>
+</view>

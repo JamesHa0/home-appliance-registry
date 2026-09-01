@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "提醒"
+  "navigationBarTitleText": "提醒",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
 }

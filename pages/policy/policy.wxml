@@ -33,3 +33,5 @@
     暂无政策与召回信息，正在接入官方数据源
   </view>
 </view>
+
+<privacy-popup />

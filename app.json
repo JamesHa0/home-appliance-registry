@@ -11,7 +11,7 @@
     "backgroundColor": "#F5F6F8",
     "backgroundTextStyle": "dark",
     "navigationBarBackgroundColor": "#0F6E56",
-    "navigationBarTitleText": "家电户籍",
+    "navigationBarTitleText": "知屋家电保修簿",
     "navigationBarTextStyle": "white"
   },
   "tabBar": {
@@ -28,5 +28,6 @@
   },
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "__usePrivacyCheck__": true
 }

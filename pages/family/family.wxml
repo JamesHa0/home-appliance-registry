@@ -11,16 +11,40 @@
       <view class="invite-hint">家人打开小程序 → 家庭 → 输入邀请码即可加入，共用同一份设备清单</view>
     </view>
 
+    <!-- 首次引导：设置昵称头像 -->
+    <view wx:if="{{!myNickname}}" class="profile-guide" bindtap="openProfileEdit">
+      <text>设置昵称头像，让家人一眼认出你</text>
+      <text class="guide-arrow">›</text>
+    </view>
+
     <view class="card">
       <view class="card-title">家庭成员（{{members.length}}）</view>
       <view wx:for="{{members}}" wx:key="key" class="member-row">
-        <text class="member-dot"></text>
-        <text class="member-label">{{item.label}}</text>
-        <text class="member-short">ID {{item.short}}</text>
+        <image wx:if="{{item.avatarFileId}}" class="member-avatar" src="{{item.avatarFileId}}" mode="aspectFill" />
+        <view wx:else class="member-avatar member-avatar-empty">{{item.avatarChar}}</view>
+        <view class="member-info">
+          <view class="member-name-line">
+            <text class="member-label">{{item.label}}</text>
+            <text wx:if="{{item.isOwner}}" class="member-role">创建者</text>
+          </view>
+        </view>
+        <text wx:if="{{item.isMe}}" class="member-edit" catchtap="openProfileEdit">编辑</text>
       </view>
     </view>
 
     <button class="btn-primary" open-type="share">邀请家人加入</button>
+    
+    <!-- 非创建者：退出家庭（解除成员死锁） -->
+    <view wx:if="{{!isOwner}}" class="leave-family-row">
+      <text class="leave-hint">不是创建者？点击退出家庭</text>
+      <button class="btn-danger leave-btn" bindtap="leaveFamily">退出家庭</button>
+    </view>
+
+    <!-- 创建者：解散家庭（解除 owner 死锁：joinFamily 拒绝多家庭 + leaveFamily 拒绝 owner 后，owner 的唯一出口） -->
+    <view wx:if="{{isOwner}}" class="leave-family-row">
+      <text class="leave-hint">家庭不再使用？解散后设备记录将全部删除</text>
+      <button class="btn-danger leave-btn" bindtap="dissolveFamily">解散家庭</button>
+    </view>
   </block>
 
   <!-- 无家庭 -->
@@ -47,4 +71,29 @@
       </button>
     </view>
   </block>
+
+  <!-- 昵称头像编辑弹窗 -->
+  <view wx:if="{{showProfileEdit}}" class="mask" bindtap="closeProfileEdit">
+    <view class="sheet" catchtap="noop">
+      <view class="sheet-title">编辑昵称头像</view>
+      <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <image wx:if="{{editAvatarUrl}}" class="avatar-preview" src="{{editAvatarUrl}}" mode="aspectFill" />
+        <view wx:else class="avatar-preview avatar-preview-empty">选择头像</view>
+      </button>
+      <input
+        class="nickname-input"
+        type="nickname"
+        placeholder="请输入昵称"
+        value="{{editNickname}}"
+        bindinput="onNicknameInput"
+        maxlength="20"
+      />
+      <view class="sheet-actions">
+        <button class="btn-ghost sheet-btn" bindtap="closeProfileEdit">取消</button>
+        <button class="btn-primary sheet-btn" bindtap="saveProfile" loading="{{savingProfile}}" disabled="{{savingProfile}}">保存</button>
+      </view>
+    </view>
+  </view>
 </view>
+
+<privacy-popup />

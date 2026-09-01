@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "家电户籍"
+  "navigationBarTitleText": "知屋家电保修簿",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
 }

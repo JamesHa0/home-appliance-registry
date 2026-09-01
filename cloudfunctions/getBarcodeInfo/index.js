@@ -23,6 +23,29 @@ function httpsGet(url) {
   })
 }
 
+/** 生产者全称 → 品牌短名（匹配到已知品牌关键词即返回，否则截前 8 字兜底） */
+function mapProducerToBrand(producer) {
+  if (!producer) return ''
+  const keywords = ['美的', '海尔', '格力', '海信', 'TCL', '小米', '奥克斯', '容声', '长虹', '创维', '华凌', '统帅']
+  for (const k of keywords) {
+    if (producer.indexOf(k) > -1) return k
+  }
+  return String(producer).slice(0, 8)
+}
+
+/** 型号前缀 + 国家标准 → 品类（与前端 CATEGORIES 枚举对齐） */
+function inferCategory(model, gb) {
+  const m = String(model || '').toUpperCase()
+  const g = String(gb || '')
+  if (m.indexOf('KFR') === 0 || m.indexOf('KF-') === 0 || g.indexOf('21455') > -1 || g.indexOf('12021.3') > -1) return '空调'
+  if (m.indexOf('BCD') === 0 || m.indexOf('BD') === 0 || m.indexOf('BC') === 0 || g.indexOf('12021.2') > -1) return '冰箱'
+  if (m.indexOf('XQG') === 0 || m.indexOf('XQB') === 0 || m.indexOf('EB') === 0 || m.indexOf('MD') === 0 || g.indexOf('12021.4') > -1) return '洗衣机'
+  if (m.indexOf('CXW') === 0 || g.indexOf('29539') > -1) return '油烟机'
+  if (g.indexOf('21519') > -1 || g.indexOf('20665') > -1) return '热水器'
+  if (g.indexOf('24850') > -1) return '电视'
+  return '' // 推断失败返回空，由用户选择
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
   const { action, code } = event
@@ -62,6 +85,59 @@ exports.main = async (event) => {
     }
   }
 
+  // 能效标识二维码解析：识别官方备案 URL 与第三方短链
+  if (action === 'parseEnergyLabel') {
+    const { qrContent } = event
+    if (!qrContent) return { code: 1, msg: '缺少二维码内容' }
+
+    const raw = String(qrContent)
+
+    // 1. 官方能效标识网 URL：SPA 页面无法在云函数内渲染，返回备案号引导手动输入
+    if (raw.indexOf('energylabel.com.cn/signDetails') > -1) {
+      const pidMatch = raw.match(/[?&]productId=([^&]+)/)
+      const productId = pidMatch ? decodeURIComponent(pidMatch[1]) : ''
+      if (!productId) return { code: 1, msg: '未获取到备案号，请手动输入' }
+      return {
+        code: 0,
+        data: {
+          source: 'energylabel-official',
+          brand: '',
+          model: '',
+          category: '',
+          productId,
+          needManual: true,
+          hint: '已识别官方能效备案号，请扫码后查看页面，手动填入生产者名称和规格型号'
+        }
+      }
+    }
+
+    // 2. bbqk 第三方短链：请求公开数据接口拿品牌/型号/品类
+    const bbqkMatch = raw.match(/bbqk\.com\/([a-zA-Z0-9]+)/)
+    if (!bbqkMatch) return { code: 1, msg: '暂不支持该二维码格式，请手动输入型号' }
+
+    const uid = bbqkMatch[1]
+    const infoUrl = `https://bbqk.pzjdimg.com/uid/${uid}/helinfo.json`
+    try {
+      const data = await httpsGet(infoUrl)
+      const json = JSON.parse(data)
+      if (!json.model) return { code: 1, msg: '未获取到型号信息，请手动输入' }
+      return {
+        code: 0,
+        data: {
+          brand: mapProducerToBrand(json.producer),
+          model: json.model,
+          category: inferCategory(json.model, json.gb),
+          level: json.level,
+          producer: json.producer,
+          gb: json.gb
+        }
+      }
+    } catch (e) {
+      console.warn('parseEnergyLabel error', e)
+      return { code: 1, msg: '能效信息获取失败，请手动输入' }
+    }
+  }
+
   if (!code) {
     return { code: 1, msg: '缺少条码参数' }
   }
@@ -83,7 +159,8 @@ exports.main = async (event) => {
       category: m.category,
       model: m.model,
       name: m.name,
-      manualUrl: m.manualUrl || ''
+      manualUrl: m.manualUrl || '',
+      scanned: { raw: code, matchedFrom: 'local' }  // Fixed P0-2: Return scanned code for cache writeback
     }
   }
 

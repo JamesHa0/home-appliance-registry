@@ -32,28 +32,82 @@
   line-height: 1.6;
 }
 
+/* 首次设置昵称引导条 */
+.profile-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFF7E6;
+  color: #B26A00;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+  font-size: 26rpx;
+}
+
+.guide-arrow {
+  font-size: 34rpx;
+  line-height: 1;
+}
+
 .member-row {
   display: flex;
   align-items: center;
   padding: 16rpx 0;
 }
 
-.member-dot {
-  width: 14rpx;
-  height: 14rpx;
+.member-avatar {
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
-  background: var(--primary);
-  margin-right: 16rpx;
+  background: #e8e8e8;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.member-avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name-line {
+  display: flex;
+  align-items: center;
 }
 
 .member-label {
-  font-size: 28rpx;
-  flex: 1;
+  font-size: 30rpx;
+  color: var(--text-main, #222);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.member-short {
-  font-size: 24rpx;
-  color: var(--text-hint);
+.member-role {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+  margin-left: 12rpx;
+}
+
+.member-edit {
+  flex-shrink: 0;
+  font-size: 26rpx;
+  color: var(--info);
+  padding: 8rpx 0 8rpx 24rpx;
 }
 
 .empty-sub {
@@ -77,4 +131,111 @@
 .join-btn {
   margin-top: 24rpx;
   width: 100%;
+}
+
+/* 昵称头像编辑弹窗 */
+.mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx 32rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-main, #222);
+  text-align: center;
+  margin-bottom: 28rpx;
+}
+
+.avatar-btn {
+  width: 160rpx;
+  height: 160rpx;
+  padding: 0;
+  margin: 0 auto 24rpx;
+  background: transparent;
+  border: none;
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-btn::after {
+  border: none;
+}
+
+.avatar-preview {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background: #f0f0f0;
+}
+
+.avatar-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-hint);
+  font-size: 26rpx;
+  border: 2rpx dashed #ccc;
+}
+
+.nickname-input {
+  border: 1rpx solid rgba(0, 0, 0, 0.12);
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 30rpx;
+  margin-bottom: 32rpx;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.sheet-btn {
+  flex: 1;
+}
+
+/* Fixed NEW-4: Leave family button styling */
+.leave-family-row {
+  margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.leave-hint {
+  font-size: 26rpx;
+  color: #ff7b00;
+  font-weight: 500;
+}
+
+.leave-btn {
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 12rpx;
+  padding: 16rpx 32rpx;
+  font-size: 28rpx;
+  box-shadow: 0 4rpx 12rpx rgba(255, 77, 79, 0.3);
+}
+
+.leave-btn::after {
+  border: none;
 }

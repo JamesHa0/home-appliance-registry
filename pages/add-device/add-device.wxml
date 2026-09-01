@@ -10,6 +10,12 @@
       扫机身码 / 条码识别
     </button>
     <view class="scan-hint">扫家电外包装条码或机身铭牌码，自动识别品牌型号</view>
+
+    <button class="btn-primary scan-btn" bindtap="scanEnergyLabel" loading="{{recognizing}}" disabled="{{recognizing || isEditMode}}">
+      扫能效标识二维码
+    </button>
+    <view class="scan-hint">扫机身「中国能效标识」上的二维码，自动读取品牌和型号</view>
+
     <view wx:if="{{scanned && scanned.found}}" class="scan-result">
       已识别：{{scanned.brand}} · {{scanned.name || scanned.model || '型号未知'}}
     </view>
@@ -48,7 +54,7 @@
 
     <view class="form-item">
       <text class="form-label">购机日期</text>
-      <picker mode="date" value="{{form.purchaseDate}}" end="{{form.purchaseDate}}" bindchange="onDate">
+      <picker mode="date" value="{{form.purchaseDate}}" end="{{todayMax}}" bindchange="onDate">
         <view class="form-input">{{form.purchaseDate}}</view>
       </picker>
     </view>
@@ -68,3 +74,5 @@
     <button class="btn-primary save-btn" bindtap="save" loading="{{saving}}" disabled="{{saving}}">保存建档</button>
   </view>
 </view>
+
+<privacy-popup />

@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "家庭"
+  "navigationBarTitleText": "家庭",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
 }

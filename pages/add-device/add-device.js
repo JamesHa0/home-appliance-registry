@@ -26,7 +26,8 @@ Page({
     scanned: null,
     recognizing: false,
     saving: false,
-    contribute: true
+    contribute: true,
+    todayMax: format.today()  // Fixed P1-1: Store today as max date for picker
   },
 
   /**
@@ -73,7 +74,7 @@ Page({
     
     cloud.call('familyService', {
       action: 'getDevice',
-      deviceId: editDeviceId
+      id: editDeviceId  // Fixed P0-1: Changed from deviceId to id for consistency
     })
     .then(res => {
       const device = res.data
@@ -117,7 +118,10 @@ Page({
     
     this.setData({ recognizing: true })
     try {
-      const res = await new Promise((resolve, reject) => {
+      // P0-3：隐私授权由全局 privacy-popup 组件处理 ——
+      // wx.scanCode 触发隐私检查时，微信回调 onNeedPrivacyAuthorization 分发到弹窗，
+      // 用户点击同意按钮后本次 scanCode 自动继续执行，无需在此手动预检
+      const scanPromise = new Promise((resolve, reject) => {
         wx.scanCode({
           scanType: ['barCode', 'qrCode', 'datamatrix'],
           onlyFromCamera: true,
@@ -125,6 +129,7 @@ Page({
           fail: reject
         })
       })
+      const res = await scanPromise
       const result = await wx.cloud.callFunction({ name: 'getBarcodeInfo', data: { code: res.result } })
       const r = result.result
       if (r.found) {
@@ -143,6 +148,67 @@ Page({
         this.setData({ scanned: { raw: res.result, found: false } })
         wx.showToast({ title: r.msg || '未识别，请手动补全', icon: 'none' })
       }
+    } catch (e) {
+      if (e.errMsg && e.errMsg.indexOf('cancel') > -1) return
+      wx.showToast({ title: '扫码失败', icon: 'none' })
+    } finally {
+      this.setData({ recognizing: false })
+    }
+  },
+
+  /** 扫能效标识二维码：wx.scanCode(qrCode) → getBarcodeInfo.parseEnergyLabel → 回填表单 */
+  async scanEnergyLabel() {
+    // 编辑模式下禁止重新扫码
+    if (this.data.isEditMode) {
+      wx.showToast({
+        title: '编辑模式下无法重新扫描',
+        icon: 'none'
+      })
+      return
+    }
+
+    this.setData({ recognizing: true })
+    try {
+      const res = await new Promise((resolve, reject) => {
+        wx.scanCode({
+          scanType: ['qrCode'],
+          onlyFromCamera: true,
+          success: resolve,
+          fail: reject
+        })
+      })
+      const result = await wx.cloud.callFunction({
+        name: 'getBarcodeInfo',
+        data: { action: 'parseEnergyLabel', qrContent: res.result }
+      })
+      const r = result.result
+      if (!r || r.code !== 0) {
+        wx.showToast({ title: (r && r.msg) || '识别失败', icon: 'none' })
+        return
+      }
+      const d = r.data || {}
+      // 官方能效备案 URL：无法自动取品牌型号，弹窗引导用户手动填写
+      if (d.needManual) {
+        wx.showModal({
+          title: '请手动填写',
+          content: (d.hint || '请查看扫码页面') + '（备案号：' + (d.productId || '') + '）',
+          showCancel: false,
+          confirmText: '知道了'
+        })
+        return
+      }
+      const { brand, model, category } = d
+      const idx = CATEGORIES.indexOf(category)
+      this.setData({
+        scanned: { found: true, brand, model, category, name: brand + ' ' + category },
+        'form.brand': brand,
+        'form.category': category,
+        'form.model': model,
+        'form.name': brand + ' ' + category,
+        categoryIndex: idx >= 0 ? idx : -1
+      })
+      this.recalcWarranty()
+      wx.showToast({ title: '识别成功，请确认型号', icon: 'none' })
     } catch (e) {
       if (e.errMsg && e.errMsg.indexOf('cancel') > -1) return
       wx.showToast({ title: '扫码失败', icon: 'none' })
@@ -204,8 +270,8 @@ Page({
       const years = this.data.warrantyYears || warrantyUtil.getWarrantyYears(form.brand, form.category)
       const warrantyEnd = warrantyUtil.calcWarrantyEnd(form.purchaseDate, form.brand, form.category, years)
       
-      let action = 'createDevice'
       const params = {
+        action: 'createDevice',
         device: {
           brand: form.brand,
           category: form.category,
@@ -221,7 +287,7 @@ Page({
       
       if (isEditMode) {
         // 更新模式：只允许更新的字段
-        action = 'updateDevice'
+        params.action = 'updateDevice'
         params.id = this.data.editDeviceId
         params.brand = form.brand
         params.category = form.category

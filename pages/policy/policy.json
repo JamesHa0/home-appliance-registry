@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "政策"
+  "navigationBarTitleText": "政策",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
 }

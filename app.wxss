@@ -1,4 +1,4 @@
-/* 全局样式 - 家电户籍 */
+/* 全局样式 - 知屋家电保修簿 */
 page {
   --primary: #0F6E56;
   --primary-light: #E1F5EE;

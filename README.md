@@ -1,4 +1,4 @@
-# 家电户籍(home-appliance-registry)
+# 知屋家电保修簿(home-appliance-registry)
 
 跨品牌家庭设备中枢微信小程序:扫码建档、保修倒计时、家庭共享、政策与召回提醒。
 

@@ -58,3 +58,5 @@
   <!-- 悬浮添加按钮 -->
   <view class="fab" bindtap="goAdd">+</view>
 </view>
+
+<privacy-popup />

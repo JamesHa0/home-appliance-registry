@@ -34,16 +34,20 @@
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [
+      { "type": "folder", "value": ".workbuddy" },
       { "type": "folder", "value": ".qoder" },
+      { "type": "folder", "value": "cloudfunctions" },
       { "type": "folder", "value": "db" },
       { "type": "folder", "value": "docs" },
       { "type": "folder", "value": "tests" },
       { "type": "folder", "value": "reviews" },
       { "type": "folder", "value": "node_modules" },
+      { "type": "file", "value": ".gitignore" },
       { "type": "file", "value": "package.json" },
       { "type": "file", "value": "package-lock.json" },
       { "type": "file", "value": "README.md" },
-      { "type": "file", "value": "jest.config.js" }
+      { "type": "file", "value": "jest.config.js" },
+      { "type": "file", "value": "config.local.js.sample" }
     ],
     "include": []
   },

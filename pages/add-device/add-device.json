@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "添加家电"
+  "navigationBarTitleText": "添加家电",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
 }

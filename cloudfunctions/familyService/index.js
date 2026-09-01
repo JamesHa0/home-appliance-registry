@@ -6,6 +6,9 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
+// Import addYears utility for consistent leap year handling across frontend/cloud
+const { addYears: calculateAddYears } = require('./utils/warranty.js')  // Fixed NEW-1: Correct relative path for cloud function
+
 function ok(data) {
   return { code: 0, data }
 }
@@ -14,17 +17,10 @@ function fail(msg, code) {
   return { code: code || 1, msg }
 }
 
-function addYears(dateStr, years) {
-  const d = new Date(String(dateStr).replace(/-/g, '/'))
-  d.setFullYear(d.getFullYear() + (Number(years) || 0))
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
-}
-
 /** 生成 6 位邀请码（含校验位）：前 5 位随机 + 第 6 位校验 */
 function genInviteCode() {
-  const baseChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // 40 字符集，无易混淆字符
+  // 注意：字符集实际长度必须与校验位取模一致，否则会越界生成 undefined
+  const baseChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789' // 34 字符（A-Z 去 I/O + 0-9）
   
   // 生成 5 个随机字符
   let code = ''
@@ -32,12 +28,12 @@ function genInviteCode() {
     code += baseChars.charAt(Math.floor(Math.random() * baseChars.length))
   }
   
-  // 计算校验位（mod 37）
+  // 计算校验位：取模必须用字符集长度，保证结果始终在字符集范围内
   let sum = 0
   for (let i = 0; i < 5; i++) {
     sum += baseChars.indexOf(code[i])
   }
-  const checkDigit = baseChars[sum % 37]
+  const checkDigit = baseChars[sum % baseChars.length]
   code += checkDigit
   
   console.log('[FamilyService] Generated invite code:', code.slice(0, 2) + '****')
@@ -86,6 +82,25 @@ function familyView(f) {
   }
 }
 
+/** 聚合成员的昵称与头像（users 集合），供家庭页展示"谁是谁" */
+async function getMembersDetail(members, ownerOpenid) {
+  const list = members || []
+  if (!list.length) return []
+  const ur = await db.collection('users')
+    .where({ openid: _.in(list) })
+    .limit(100)
+    .get()
+    .catch(() => ({ data: [] }))
+  const usersMap = {}
+  ;(ur.data || []).forEach(u => { usersMap[u.openid] = u })
+  return list.map(openid => ({
+    openid,
+    nickname: (usersMap[openid] && usersMap[openid].nickname) || '',
+    avatarFileId: (usersMap[openid] && usersMap[openid].avatarFileId) || '',
+    isOwner: openid === ownerOpenid
+  }))
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
   const { action } = event || {}
@@ -94,9 +109,37 @@ exports.main = async (event) => {
     switch (action) {
       // ---------- 家庭 ----------
       case 'getFamily': {
-        const fam = await getFamilyByOpenid(OPENID)
+        let fam = await getFamilyByOpenid(OPENID)
+        // 数据兜底：早期/异常数据可能缺 inviteCode 字段，缺失时补生成，
+        // 保证无论创建者还是家庭成员调用 getFamily 都能拿到邀请码
+        if (fam && !fam.inviteCode) {
+          const code = genInviteCode()
+          await db.collection('families').doc(fam._id).update({ data: { inviteCode: code } })
+          fam = Object.assign({}, fam, { inviteCode: code })
+        }
+        if (!fam) return ok({ openid: OPENID })
         const v = familyView(fam)
-        return ok(v ? Object.assign({ openid: OPENID }, v) : { openid: OPENID })
+        // 聚合成员昵称头像，供家庭页展示（members 保持字符串数组不变）
+        const membersDetail = await getMembersDetail(fam.members, fam.ownerOpenid)
+        return ok(Object.assign({ openid: OPENID }, v, { membersDetail }))
+      }
+
+      case 'updateProfile': {
+        // 设置当前用户的全局昵称/头像（users 集合，按 openid upsert）
+        const nickname = String(event.nickname || '').trim().slice(0, 20)
+        const avatarFileId = String(event.avatarFileId || '').trim()
+        const now = db.serverDate()
+        const existing = await db.collection('users').where({ openid: OPENID }).limit(1).get()
+        if (existing.data.length) {
+          await db.collection('users').doc(existing.data[0]._id).update({
+            data: { nickname, avatarFileId, updatedAt: now }
+          })
+        } else {
+          await db.collection('users').add({
+            data: { openid: OPENID, nickname, avatarFileId, createdAt: now, updatedAt: now }
+          })
+        }
+        return ok({ openid: OPENID, nickname, avatarFileId })
       }
 
       case 'createFamily': {
@@ -118,6 +161,12 @@ exports.main = async (event) => {
 
       case 'joinFamily': {
         try {
+          // Fixed P0-5: Check if user already belongs to another family
+          const existingFamily = await getFamilyByOpenid(OPENID)
+          if (existingFamily) {
+            return fail('您已加入一个家庭，如需加入其他家庭请先到家庭管理页退出', 400)
+          }
+          
           // Rate limiter for join family (5 attempts per hour, 5 min block)
           const joinRateLimiter = require('./middleware/rateLimit').createRateLimiter({
             windowMs: 3600000,       // 1 hour window
@@ -150,8 +199,11 @@ exports.main = async (event) => {
               }
               
               // Add member to family
+              // 使用单值 push：传数组依赖 SDK 的 $each 展开兼容行为，若底层按 MongoDB
+              // 原生 $push 处理会把整个数组作为单个元素追加，形成嵌套数组（members: [A, [B]]），
+              // 导致 getFamilyByOpenid 的 where({ members: openid }) 查询不到成员 → 成员看不到家庭与邀请码
               await db.collection('families').doc(fam._id).update({
-                data: { members: _.push([OPENID]) }
+                data: { members: _.push(OPENID) }
               })
               
               console.log('[FamilyService] Member joined successfully:', {
@@ -235,20 +287,53 @@ exports.main = async (event) => {
           const dup = await db.collection('models')
             .where({ brand: ugcBrand, model: ugcModel })
             .count()
+          
           if (dup.total === 0) {
-            await db.collection('models').add({
-              data: {
-                brand: ugcBrand,
-                category: String(d.category || '').trim().slice(0, 20),
-                model: ugcModel,
-                name: ugcName || (ugcBrand + ' ' + ugcModel),
-                barcode: String(d.barcode || '').trim().slice(0, 20),
-                manualUrl: '',
-                source: 'ugc',
-                contributedBy: OPENID,
-                createdAt: db.serverDate()
+            let isSafe = false
+            try {
+              // P0-4：内容安全检测（msgSecCheck v2 云调用）
+              // 参数契约：content 必须是字符串；version/openid/scene 为平级必填项
+              // 权限：需在本云函数目录 config.json 的 permissions.openapi 声明 security.msgSecCheck
+              const textToCheck = `${ugcBrand} ${ugcModel} ${ugcName}`.slice(0, 2500)
+              const securityResult = await cloud.openapi.security.msgSecCheck({
+                openid: OPENID,
+                scene: 2,        // 2: 评论（用户生成内容）
+                version: 2,
+                content: textToCheck
+              })
+              // 返回结构：{ errcode, result: { suggest: 'pass'|'risky'|'review', label } }
+              const suggest = securityResult && securityResult.result && securityResult.result.suggest
+              isSafe = suggest === 'pass'
+
+              if (!isSafe) {
+                console.warn('[FamilyService] UGC content blocked by security:', {
+                  openid: OPENID.slice(-8),
+                  suggest,
+                  text: textToCheck.slice(0, 20) + '...'
+                })
               }
-            })
+            } catch (error) {
+              // fail-closed：检测接口异常时拒绝入库，防止违规内容借报错绕过检测
+              // （设备本身仍创建成功，仅跳过公开型号库贡献）
+              console.error('[FamilyService] Security check failed, skip UGC contribution:', error)
+              isSafe = false
+            }
+
+            if (isSafe) {
+              await db.collection('models').add({
+                data: {
+                  brand: ugcBrand,
+                  category: String(d.category || '').trim().slice(0, 20),
+                  model: ugcModel,
+                  name: ugcName || (ugcBrand + ' ' + ugcModel),
+                  barcode: String(d.barcode || '').trim().slice(0, 20),
+                  manualUrl: '',
+                  source: 'ugc',
+                  contributedBy: OPENID,
+                  createdAt: db.serverDate()
+                }
+              })
+            }
           }
         }
         return ok({ id: addRes._id, familyId: fam._id })
@@ -278,10 +363,11 @@ exports.main = async (event) => {
         if (!Object.keys(patch).length) return fail('没有可更新字段')
         
         // 如果 purchaseDate 或 warrantyYears 被修改，需要重新计算 warrantyEnd
-        if (patch.purchaseDate || patch.warrantyYears) {
+        // 注意用 !== undefined 判断（不能用 truthy）：单独把保修年限改成 0 也要触发重算
+        if (patch.purchaseDate !== undefined || patch.warrantyYears !== undefined) {
           const newPurchaseDate = patch.purchaseDate || device.purchaseDate
-          const newWarrantyYears = patch.warrantyYears || device.warrantyYears
-          patch.warrantyEnd = addYears(newPurchaseDate, newWarrantyYears)
+          const newWarrantyYears = patch.warrantyYears !== undefined ? patch.warrantyYears : device.warrantyYears  // Fixed P1-2: Use ternary to support 0 value
+          patch.warrantyEnd = calculateAddYears(newPurchaseDate, newWarrantyYears)
         }
         
         await db.collection('devices').doc(event.id).update({ data: patch })
@@ -305,6 +391,80 @@ exports.main = async (event) => {
           .where({ deviceId: event.id })
           .remove()
           .catch(() => {})
+        return ok(true)
+      }
+      
+      case 'leaveFamily': {
+        const fam = await getFamilyByOpenid(OPENID)
+        if (!fam) return fail('暂无家庭')
+
+        if (fam.ownerOpenid === OPENID) {
+          // 创建者不能退出自己创建的家庭；可在家庭页「解散家庭」后重新创建或加入其他家庭
+          return fail('作为家庭创建者，请先在家庭页解散家庭，再创建或加入其他家庭', 400)
+        }
+
+        // 清理该用户在本家庭设备上的保修提醒订阅，避免退出后仍收到原家庭推送
+        const leaveDevices = await db.collection('devices')
+          .where({ familyId: fam._id })
+          .limit(1000)
+          .get()
+          .catch(() => ({ data: [] }))
+        const leaveDeviceIds = (leaveDevices.data || []).map(d => d._id)
+        if (leaveDeviceIds.length) {
+          await db.collection('subscriptions')
+            .where({ openid: OPENID, deviceId: _.in(leaveDeviceIds) })
+            .remove()
+            .catch(() => {})
+        }
+
+        // Remove member from family
+        await db.collection('families').doc(fam._id).update({
+          data: { members: _.pull(OPENID) }
+        })
+
+        console.log('[FamilyService] User left family:', {
+          familyId: fam._id,
+          openid: OPENID.slice(-8),
+          cleanedSubscriptions: leaveDeviceIds.length
+        })
+
+        return ok(true)
+      }
+
+      case 'dissolveFamily': {
+        // 解除创建者死锁：joinFamily 拒绝多家庭 + leaveFamily 拒绝 owner 后，
+        // owner 需要一个出口 —— 解散家庭（级联删除设备与订阅），之后可重新创建或加入其他家庭
+        const fam = await getFamilyByOpenid(OPENID)
+        if (!fam) return fail('暂无家庭')
+        if (fam.ownerOpenid !== OPENID) {
+          return fail('只有家庭创建者可以解散家庭', 400)
+        }
+
+        // 级联清理：本家庭全部设备的订阅记录 → 设备 → 家庭
+        const famDevices = await db.collection('devices')
+          .where({ familyId: fam._id })
+          .limit(1000)
+          .get()
+          .catch(() => ({ data: [] }))
+        const famDeviceIds = (famDevices.data || []).map(d => d._id)
+        if (famDeviceIds.length) {
+          await db.collection('subscriptions')
+            .where({ deviceId: _.in(famDeviceIds) })
+            .remove()
+            .catch(() => {})
+          await db.collection('devices')
+            .where({ familyId: fam._id })
+            .remove()
+            .catch(() => {})
+        }
+        await db.collection('families').doc(fam._id).remove()
+
+        console.log('[FamilyService] Family dissolved:', {
+          familyId: fam._id,
+          openid: OPENID.slice(-8),
+          deviceCount: famDeviceIds.length
+        })
+
         return ok(true)
       }
 
