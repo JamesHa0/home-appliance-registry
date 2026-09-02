@@ -6,6 +6,7 @@
     "pages/family/family",
     "pages/policy/policy",
     "pages/settings/settings",
+    "pages/archive/archive",
     "pages/privacy/privacy"
   ],
   "window": {

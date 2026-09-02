@@ -93,6 +93,11 @@ page {
   color: var(--info);
 }
 
+.tag-gray {
+  background: #F1EFE8;
+  color: #888780;
+}
+
 .empty {
   text-align: center;
   color: var(--text-hint);

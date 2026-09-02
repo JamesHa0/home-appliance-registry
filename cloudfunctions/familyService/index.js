@@ -244,13 +244,26 @@ exports.main = async (event) => {
       // ---------- 设备 ----------
       case 'getDevices': {
         const fam = await getFamilyByOpenid(OPENID)
-        if (!fam) return ok({ familyId: null, devices: [] })
+        if (!fam) return ok({ familyId: null, devices: [], archivedCount: 0 })
+        // 归档过滤：archived=true 查已归档；否则查在库（_.neq(true) 兼容无 archived 字段的历史数据）
+        const wantArchived = event.archived === true
+        const cond = wantArchived
+          ? { familyId: fam._id, archived: true }
+          : { familyId: fam._id, archived: _.neq(true) }
         const res = await db.collection('devices')
-          .where({ familyId: fam._id })
+          .where(cond)
           .orderBy('createdAt', 'desc')
           .limit(100)
           .get()
-        return ok({ familyId: fam._id, devices: res.data })
+        // 在库查询时顺带统计已归档数，供首页「已归档」入口角标
+        let archivedCount = 0
+        if (!wantArchived) {
+          const cnt = await db.collection('devices')
+            .where({ familyId: fam._id, archived: true })
+            .count()
+          archivedCount = cnt.total || 0
+        }
+        return ok({ familyId: fam._id, devices: res.data, archivedCount })
       }
 
       case 'getDevice': {
@@ -265,16 +278,30 @@ exports.main = async (event) => {
         const fam = await ensureFamily(OPENID)
         const d = event.device || {}
         if (!d.brand || !d.model) return fail('品牌与型号必填')
+
+        // 设备别称：用户填写则原样使用；未填写时自动生成默认名并对同家庭重名追加序号，
+        // 保证多台同品牌同型号设备在列表中可区分（如"美的 空调" / "美的 空调 2"）
+        let deviceName = String(d.name || '').trim()
+        if (!deviceName) {
+          deviceName = (d.brand + ' ' + (d.category || d.model)).trim()
+          const dup = await db.collection('devices')
+            .where({ familyId: fam._id, name: deviceName })
+            .count()
+          if (dup.total > 0) deviceName = `${deviceName} ${dup.total + 1}`
+        }
+
         const device = {
           familyId: fam._id,
           brand: d.brand,
           category: d.category || '',
           model: d.model,
-          name: d.name || (d.brand + ' ' + d.model),
+          name: deviceName,
           purchaseDate: d.purchaseDate || '',
           warrantyYears: d.warrantyYears || 0,
           warrantyEnd: d.warrantyEnd || '',
           barcode: d.barcode || '',
+          archived: false,
+          archivedAt: null,
           createdAt: db.serverDate()
         }
         const addRes = await db.collection('devices').add({ data: device })
@@ -353,11 +380,12 @@ exports.main = async (event) => {
         // 允许更新的字段列表
         const patch = {}
         const allow = ['name', 'category', 'model', 'brand', 'purchaseDate', 'warrantyYears', 'warrantyEnd']
-        
+
         allow.forEach(k => {
-          if (event[k] !== undefined && event[k] !== null) {
-            patch[k] = event[k]
-          }
+          if (event[k] === undefined || event[k] === null) return
+          // 防误清空：别称（name）传空串时忽略，避免列表/详情显示空白
+          if (k === 'name' && String(event[k]).trim() === '') return
+          patch[k] = event[k]
         })
         
         if (!Object.keys(patch).length) return fail('没有可更新字段')
@@ -391,6 +419,35 @@ exports.main = async (event) => {
           .where({ deviceId: event.id })
           .remove()
           .catch(() => {})
+        return ok(true)
+      }
+
+      case 'archiveDevice': {
+        // 一级删除 = 归档（软删除，可恢复）：设 archived 标记并清理订阅，设备不在首页/待办/召回中显示
+        const fam = await getFamilyByOpenid(OPENID)
+        if (!fam) return fail('请先创建或加入家庭')
+        if (!event.id) return fail('缺少设备 id')
+        await assertDeviceBelongs(event.id, fam._id)
+        await db.collection('devices').doc(event.id).update({
+          data: { archived: true, archivedAt: db.serverDate() }
+        })
+        // 归档后不再推送保修提醒，清掉该设备的订阅
+        await db.collection('subscriptions')
+          .where({ deviceId: event.id })
+          .remove()
+          .catch(() => {})
+        return ok(true)
+      }
+
+      case 'restoreDevice': {
+        // 从归档恢复：清 archived 标记，回到在库列表（订阅不自动恢复，用户需重新订阅）
+        const fam = await getFamilyByOpenid(OPENID)
+        if (!fam) return fail('请先创建或加入家庭')
+        if (!event.id) return fail('缺少设备 id')
+        await assertDeviceBelongs(event.id, fam._id)
+        await db.collection('devices').doc(event.id).update({
+          data: { archived: false, archivedAt: null }
+        })
         return ok(true)
       }
       

@@ -12,6 +12,7 @@
       <view class="device-head">
         <text class="device-name">{{device.name}}</text>
         <text class="tag {{device.category ? 'tag-green' : ''}}">{{device.category}}</text>
+        <text wx:if="{{device.archived}}" class="tag tag-gray">已归档</text>
       </view>
       <view class="device-meta">
         <text>{{device.brand}} · {{device.model}}</text>
@@ -46,13 +47,22 @@
     </view>
 
     <view class="action-buttons">
-      <button class="btn-primary edit-btn" bindtap="goEditDevice">
-        <text>编辑信息</text>
-      </button>
-      
-      <button class="btn-ghost delete-btn" bindtap="deleteDevice">
-        <text>删除该设备档案</text>
-      </button>
+      <block wx:if="{{!device.archived}}">
+        <button class="btn-primary edit-btn" bindtap="goEditDevice">
+          <text>编辑信息</text>
+        </button>
+        <button class="btn-ghost delete-btn" bindtap="archiveDevice">
+          <text>归档该设备</text>
+        </button>
+      </block>
+      <block wx:else>
+        <button class="btn-primary edit-btn" bindtap="restoreDevice">
+          <text>恢复设备</text>
+        </button>
+        <button class="btn-danger delete-btn" bindtap="deleteDevice">
+          <text>永久删除</text>
+        </button>
+      </block>
     </view>
   </block>
 

@@ -4,7 +4,6 @@
     "category": "空调",
     "model": "KFR-35GW/N8KS1-1",
     "name": "美的 1.5 匹新一级能效空调",
-    "barcode": "6901234567890",
     "manualUrl": "https://www.midea.com/support"
   },
   {
@@ -12,7 +11,6 @@
     "category": "空调",
     "model": "KFR-35GW/N8MHA1",
     "name": "美的 1.5 匹变频空调",
-    "barcode": "6901234567906",
     "manualUrl": "https://www.midea.com/support"
   },
   {
@@ -20,7 +18,6 @@
     "category": "洗衣机",
     "model": "MD100V70DG",
     "name": "美的 10 公斤滚筒洗衣机",
-    "barcode": "6901885996917",
     "manualUrl": "https://www.midea.com/support"
   },
   {
@@ -28,7 +25,6 @@
     "category": "冰箱",
     "model": "BCD-516WFGPZM",
     "name": "美的 516 升对开门冰箱",
-    "barcode": "6901234567913",
     "manualUrl": "https://www.midea.com/support"
   },
   {
@@ -36,7 +32,6 @@
     "category": "热水器",
     "model": "F60-21BA6",
     "name": "美的 60 升电热水器",
-    "barcode": "6901234567920",
     "manualUrl": "https://www.midea.com/support"
   },
   {
@@ -44,7 +39,6 @@
     "category": "电饭煲",
     "model": "MB-FB40Simple111",
     "name": "美的 4L 电饭煲",
-    "barcode": "6901234567937",
     "manualUrl": "https://www.midea.com/support"
   },
   {
@@ -52,7 +46,6 @@
     "category": "空调",
     "model": "KFR-35GW/01KBB81U1",
     "name": "海尔 1.5 匹节能空调",
-    "barcode": "6902186042968",
     "manualUrl": "https://www.haier.com/support"
   },
   {
@@ -60,7 +53,6 @@
     "category": "空调",
     "model": "KFR-72LW/02ZBC33",
     "name": "海尔 3 匹柜机空调",
-    "barcode": "6902186043231",
     "manualUrl": "https://www.haier.com/support"
   },
   {
@@ -68,7 +60,6 @@
     "category": "洗衣机",
     "model": "EG100MATE6S",
     "name": "海尔 10 公斤滚筒洗衣机",
-    "barcode": "6902186046423",
     "manualUrl": "https://www.haier.com/support"
   },
   {
@@ -76,7 +67,6 @@
     "category": "冰箱",
     "model": "BCD-470WGHTD5WG9U1",
     "name": "海尔 470 升十字对开门冰箱",
-    "barcode": "6902186043514",
     "manualUrl": "https://www.haier.com/support"
   },
   {
@@ -84,7 +74,6 @@
     "category": "热水器",
     "model": "ES60H-C6",
     "name": "海尔 60 升电热水器",
-    "barcode": "6902186042340",
     "manualUrl": "https://www.haier.com/support"
   },
   {
@@ -92,7 +81,6 @@
     "category": "电视",
     "model": "65R5",
     "name": "海尔 65 寸 4K 电视",
-    "barcode": "6902186046010",
     "manualUrl": "https://www.haier.com/support"
   },
   {
@@ -100,7 +88,6 @@
     "category": "空调",
     "model": "KFR-35GW/N1A3",
     "name": "小米 1.5 匹新一级能效空调",
-    "barcode": "6934176377036",
     "manualUrl": "https://www.mi.com/support"
   },
   {
@@ -108,7 +95,6 @@
     "category": "空调",
     "model": "KFR-72LW/N1A1",
     "name": "小米 3 匹立式空调",
-    "barcode": "6934176377050",
     "manualUrl": "https://www.mi.com/support"
   },
   {
@@ -116,7 +102,6 @@
     "category": "洗衣机",
     "model": "XQG100MJ106",
     "name": "小米 10 公斤滚筒洗衣机",
-    "barcode": "6934176377135",
     "manualUrl": "https://www.mi.com/support"
   },
   {
@@ -124,7 +109,6 @@
     "category": "冰箱",
     "model": "BCD-501WGPM",
     "name": "小米 501 升十字冰箱",
-    "barcode": "6934176377214",
     "manualUrl": "https://www.mi.com/support"
   },
   {
@@ -132,7 +116,6 @@
     "category": "电视",
     "model": "EA55",
     "name": "小米电视 55 寸",
-    "barcode": "6934176376718",
     "manualUrl": "https://www.mi.com/support"
   },
   {
@@ -140,7 +123,6 @@
     "category": "电视",
     "model": "L70M5-4A",
     "name": "小米电视 70 寸",
-    "barcode": "6934176376817",
     "manualUrl": "https://www.mi.com/support"
   }
 ]

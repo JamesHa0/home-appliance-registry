@@ -29,6 +29,10 @@
       <view class="empty-sub">点击右下角 + 扫码建档，识别品牌型号</view>
     </view>
 
+    <view wx:if="{{archivedCount > 0}}" class="archive-entry" bindtap="goArchive">
+      已归档设备 {{archivedCount}} 台 ›
+    </view>
+
     <view
       wx:for="{{devices}}"
       wx:key="_id"

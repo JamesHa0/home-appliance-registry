@@ -7,26 +7,26 @@
     </view>
     
     <button class="btn-primary scan-btn" bindtap="scan" loading="{{recognizing}}" disabled="{{recognizing || isEditMode}}">
-      扫机身码 / 条码识别
+      扫码识别
     </button>
-    <view class="scan-hint">扫家电外包装条码或机身铭牌码，自动识别品牌型号</view>
-
-    <button class="btn-primary scan-btn" bindtap="scanEnergyLabel" loading="{{recognizing}}" disabled="{{recognizing || isEditMode}}">
-      扫能效标识二维码
-    </button>
-    <view class="scan-hint">扫机身「中国能效标识」上的二维码，自动读取品牌和型号</view>
+    <view class="scan-hint">扫机身「中国能效标识」二维码或包装条码，自动识别品牌与型号</view>
 
     <view wx:if="{{scanned && scanned.found}}" class="scan-result">
       已识别：{{scanned.brand}} · {{scanned.name || scanned.model || '型号未知'}}
     </view>
     <view wx:if="{{scanned && !scanned.found}}" class="scan-result scan-miss">
-      条码 {{scanned.raw}} 未在型号库命中，请手动补全下方信息
+      {{scanned.raw}} 未识别，请手动补全下方信息
     </view>
   </view>
 
   <!-- 建档表单 -->
   <view class="card">
     <view class="card-title">设备信息</view>
+
+    <view class="form-item">
+      <text class="form-label">设备别称</text>
+      <input class="form-input" placeholder="如：客厅空调（用于区分同型号设备，可不填）" value="{{form.name}}" data-field="name" bindinput="onInput" />
+    </view>
 
     <view class="form-item">
       <text class="form-label">品牌</text>
@@ -45,11 +45,6 @@
     <view class="form-item">
       <text class="form-label">型号</text>
       <input class="form-input" placeholder="机身铭牌上的型号，如 KFR-35GW" value="{{form.model}}" data-field="model" bindinput="onInput" />
-    </view>
-
-    <view class="form-item">
-      <text class="form-label">名称</text>
-      <input class="form-input" placeholder="可选，如 客厅空调" value="{{form.name}}" data-field="name" bindinput="onInput" />
     </view>
 
     <view class="form-item">

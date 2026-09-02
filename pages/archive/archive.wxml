@@ -1,0 +1,25 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="empty">加载中…</view>
+  <view wx:elif="{{!devices.length}}" class="empty">
+    暂无已归档设备
+  </view>
+
+  <view
+    wx:for="{{devices}}"
+    wx:key="_id"
+    class="card archive-card"
+  >
+    <view class="archive-head" bindtap="goDetail" data-id="{{item._id}}">
+      <view class="archive-info">
+        <view class="archive-name">{{item.name}}</view>
+        <view class="archive-meta">{{item.brand}} · {{item.model}}</view>
+        <view wx:if="{{item.archivedLabel}}" class="archive-time">归档于 {{item.archivedLabel}}</view>
+      </view>
+      <text class="tag tag-gray">已归档</text>
+    </view>
+    <view class="archive-actions">
+      <button class="btn-ghost archive-btn" bindtap="restoreDevice" data-id="{{item._id}}">恢复</button>
+      <button class="btn-danger archive-btn" bindtap="permanentDelete" data-id="{{item._id}}">永久删除</button>
+    </view>
+  </view>
+</view>

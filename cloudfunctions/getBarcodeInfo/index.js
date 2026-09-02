@@ -46,9 +46,65 @@ function inferCategory(model, gb) {
   return '' // 推断失败返回空，由用户选择
 }
 
+/** 判断扫码内容是否为能效标识二维码（官方备案 URL 或第三方能效短链） */
+function isEnergyLabelQr(raw) {
+  return /energylabel\.com\.cn/i.test(raw) || /bbqk\.com\//i.test(raw)
+}
+
+/**
+ * 解析能效标识二维码 → 统一返回结构
+ * 注意：能效备案信息不自动抓取 —— 官方（中国标准化研究院 2025-09 公告）未授权第三方
+ * 开展备案信息查询/展示服务，因此官方 URL 只提取备案号引导用户手动填写
+ */
+async function resolveEnergyLabel(raw) {
+  // 1. 官方能效标识网 URL：SPA 页面无法在云函数内渲染，返回备案号引导手动输入
+  if (/energylabel\.com\.cn/i.test(raw)) {
+    const pidMatch = raw.match(/[?&]productId=([^&]+)/)
+    const productId = pidMatch ? decodeURIComponent(pidMatch[1]) : ''
+    if (!productId) {
+      return { code: 0, kind: 'energylabel', found: false, needManual: true, raw,
+        hint: '未获取到备案号，请手动输入' }
+    }
+    return { code: 0, kind: 'energylabel', found: false, needManual: true, productId, raw,
+      hint: '已识别官方能效备案号，请对照扫码页面的生产者名称和规格型号手动填入' }
+  }
+
+  // 2. bbqk 第三方短链：请求公开数据接口拿品牌/型号/品类
+  const bbqkMatch = raw.match(/bbqk\.com\/([a-zA-Z0-9]+)/)
+  if (!bbqkMatch) {
+    return { code: 0, kind: 'energylabel', found: false, raw,
+      msg: '暂不支持该二维码格式，请手动输入型号' }
+  }
+  const uid = bbqkMatch[1]
+  const infoUrl = `https://bbqk.pzjdimg.com/uid/${uid}/helinfo.json`
+  try {
+    const data = await httpsGet(infoUrl)
+    const json = JSON.parse(data)
+    if (!json.model) {
+      return { code: 0, kind: 'energylabel', found: false, raw,
+        msg: '未获取到型号信息，请手动输入' }
+    }
+    return {
+      code: 0,
+      kind: 'energylabel',
+      found: true,
+      brand: mapProducerToBrand(json.producer),
+      model: json.model,
+      category: inferCategory(json.model, json.gb),
+      level: json.level,
+      producer: json.producer,
+      raw
+    }
+  } catch (e) {
+    console.warn('resolveEnergyLabel error', e)
+    return { code: 0, kind: 'energylabel', found: false, raw,
+      msg: '能效信息获取失败，请手动输入' }
+  }
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
-  const { action, code } = event
+  const { action } = event
 
   // 供前端获取 openid
   if (action === 'openid') {
@@ -85,61 +141,13 @@ exports.main = async (event) => {
     }
   }
 
-  // 能效标识二维码解析：识别官方备案 URL 与第三方短链
-  if (action === 'parseEnergyLabel') {
-    const { qrContent } = event
-    if (!qrContent) return { code: 1, msg: '缺少二维码内容' }
+  // 统一扫码入口：兼容 code（商品条码）与 qrContent（能效二维码），按内容自动路由
+  const code = String(event.qrContent || event.code || '').trim()
+  if (!code) return { code: 1, msg: '缺少条码参数' }
 
-    const raw = String(qrContent)
-
-    // 1. 官方能效标识网 URL：SPA 页面无法在云函数内渲染，返回备案号引导手动输入
-    if (raw.indexOf('energylabel.com.cn/signDetails') > -1) {
-      const pidMatch = raw.match(/[?&]productId=([^&]+)/)
-      const productId = pidMatch ? decodeURIComponent(pidMatch[1]) : ''
-      if (!productId) return { code: 1, msg: '未获取到备案号，请手动输入' }
-      return {
-        code: 0,
-        data: {
-          source: 'energylabel-official',
-          brand: '',
-          model: '',
-          category: '',
-          productId,
-          needManual: true,
-          hint: '已识别官方能效备案号，请扫码后查看页面，手动填入生产者名称和规格型号'
-        }
-      }
-    }
-
-    // 2. bbqk 第三方短链：请求公开数据接口拿品牌/型号/品类
-    const bbqkMatch = raw.match(/bbqk\.com\/([a-zA-Z0-9]+)/)
-    if (!bbqkMatch) return { code: 1, msg: '暂不支持该二维码格式，请手动输入型号' }
-
-    const uid = bbqkMatch[1]
-    const infoUrl = `https://bbqk.pzjdimg.com/uid/${uid}/helinfo.json`
-    try {
-      const data = await httpsGet(infoUrl)
-      const json = JSON.parse(data)
-      if (!json.model) return { code: 1, msg: '未获取到型号信息，请手动输入' }
-      return {
-        code: 0,
-        data: {
-          brand: mapProducerToBrand(json.producer),
-          model: json.model,
-          category: inferCategory(json.model, json.gb),
-          level: json.level,
-          producer: json.producer,
-          gb: json.gb
-        }
-      }
-    } catch (e) {
-      console.warn('parseEnergyLabel error', e)
-      return { code: 1, msg: '能效信息获取失败，请手动输入' }
-    }
-  }
-
-  if (!code) {
-    return { code: 1, msg: '缺少条码参数' }
+  // 能效标识二维码 → 能效解析；其余（纯数字条码 / 其他码制）→ 商品条码查询
+  if (action === 'parseEnergyLabel' || isEnergyLabelQr(code)) {
+    return resolveEnergyLabel(code)
   }
 
   // 1. 优先命中本地型号库（冷启动预置 + UGC 补充）
@@ -153,6 +161,7 @@ exports.main = async (event) => {
     const m = local.data[0]
     return {
       code: 0,
+      kind: 'barcode',
       found: true,
       source: 'model-db',
       brand: m.brand,
@@ -197,6 +206,7 @@ exports.main = async (event) => {
         }
         return {
           code: 0,
+          kind: 'barcode',
           found: true,
           source: 'barcode-api',
           brand,
@@ -213,6 +223,7 @@ exports.main = async (event) => {
   // 3. 兜底：引导前端 OCR / 手动录入
   return {
     code: 0,
+    kind: 'barcode',
     found: false,
     raw: code,
     msg: '未在型号库命中，请手动确认型号或拍照识别铭牌'

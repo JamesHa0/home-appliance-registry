@@ -6,7 +6,8 @@ Page({
     devices: [],
     todos: [],
     loading: true,
-    hasFamily: true
+    hasFamily: true,
+    archivedCount: 0
   },
 
   onShow() {
@@ -19,6 +20,7 @@ Page({
       // 设备列表经 familyService 获取（服务端校验家庭成员，家人可见彼此设备）
       const res = await cloud.call('familyService', { action: 'getDevices' })
       const familyId = res.data.familyId
+      const archivedCount = res.data.archivedCount || 0
       const devices = (res.data.devices || []).map(d => {
         const ws = format.warrantyStatus(d.warrantyEnd)
         return Object.assign({}, d, { ws, recalled: false })
@@ -56,7 +58,7 @@ Page({
         todos.push({ type: 'policy', text: '2026 国补进行中：1 级能效家电换新最高补 1500 元', link: '/pages/policy/policy' })
       }
 
-      this.setData({ devices, todos, loading: false, hasFamily: !!familyId })
+      this.setData({ devices, todos, loading: false, hasFamily: !!familyId, archivedCount })
     } catch (e) {
       console.warn(e)
       this.setData({ loading: false })
@@ -72,6 +74,9 @@ Page({
   },
   goFamily() {
     wx.switchTab({ url: '/pages/family/family' })
+  },
+  goArchive() {
+    wx.navigateTo({ url: '/pages/archive/archive' })
   },
   goPolicy() {
     wx.switchTab({ url: '/pages/policy/policy' })

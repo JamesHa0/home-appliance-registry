@@ -105,7 +105,11 @@ Page({
     })
   },
 
-  /** 扫码识别：机身码 → 云函数（本地型号库 → 条码 API）→ 回填表单 */
+  /**
+   * 统一扫码识别：一个入口，按扫码内容自动路由
+   * 商品条码 → getBarcodeInfo 条码链路；能效标识二维码 → 能效解析链路
+   * 路由在云函数侧按内容判断（energylabel.com.cn / bbqk.com 短链 → 能效，其余 → 条码）
+   */
   async scan() {
     // 编辑模式下禁止重新扫码
     if (this.data.isEditMode) {
@@ -115,13 +119,13 @@ Page({
       })
       return
     }
-    
+
     this.setData({ recognizing: true })
     try {
       // P0-3：隐私授权由全局 privacy-popup 组件处理 ——
       // wx.scanCode 触发隐私检查时，微信回调 onNeedPrivacyAuthorization 分发到弹窗，
       // 用户点击同意按钮后本次 scanCode 自动继续执行，无需在此手动预检
-      const scanPromise = new Promise((resolve, reject) => {
+      const res = await new Promise((resolve, reject) => {
         wx.scanCode({
           scanType: ['barCode', 'qrCode', 'datamatrix'],
           onlyFromCamera: true,
@@ -129,9 +133,51 @@ Page({
           fail: reject
         })
       })
-      const res = await scanPromise
-      const result = await wx.cloud.callFunction({ name: 'getBarcodeInfo', data: { code: res.result } })
+      const result = await wx.cloud.callFunction({
+        name: 'getBarcodeInfo',
+        data: { code: res.result }
+      })
       const r = result.result
+      if (!r || r.code !== 0) {
+        wx.showToast({ title: (r && r.msg) || '识别失败，请手动补全', icon: 'none' })
+        return
+      }
+
+      // ---------- 能效标识二维码 ----------
+      if (r.kind === 'energylabel') {
+        // 官方备案 URL：能效备案信息不自动抓取（官方未授权第三方查询/展示），引导手动填写
+        if (r.needManual) {
+          this.setData({ scanned: { raw: '能效码' + (r.productId ? ' ' + r.productId : ''), found: false } })
+          wx.showModal({
+            title: '请手动填写',
+            content: (r.hint || '请查看扫码页面') + (r.productId ? '（备案号：' + r.productId + '）' : ''),
+            showCancel: false,
+            confirmText: '知道了'
+          })
+          return
+        }
+        if (!r.found) {
+          this.setData({ scanned: { raw: '能效码', found: false } })
+          wx.showToast({ title: r.msg || '未识别，请手动补全', icon: 'none' })
+          return
+        }
+        const { brand, model, category } = r
+        const idx = CATEGORIES.indexOf(category)
+        this.setData({
+          scanned: { found: true, brand, model, category, name: brand + ' ' + category },
+          'form.brand': brand,
+          'form.category': category,
+          'form.model': model,
+          // 别称：仅在用户尚未输入时才用识别结果预填，避免覆盖用户手动填写的别称
+          ...(this.data.form.name ? {} : { 'form.name': brand + ' ' + category }),
+          categoryIndex: idx >= 0 ? idx : -1
+        })
+        this.recalcWarranty()
+        wx.showToast({ title: '识别成功，请确认型号', icon: 'none' })
+        return
+      }
+
+      // ---------- 商品条码 ----------
       if (r.found) {
         const idx = CATEGORIES.indexOf(r.category)
         this.setData({
@@ -139,76 +185,16 @@ Page({
           'form.brand': r.brand,
           'form.category': r.category,
           'form.model': r.model || '', // 本地库命中回填真实型号；在线 GS1 反查无型号（后端返回空），留空由用户确认
-          'form.name': r.name || '',
+          // 别称：仅在用户尚未输入时才用识别结果预填，避免覆盖用户手动填写的别称
+          ...(this.data.form.name ? {} : { 'form.name': r.name || '' }),
           categoryIndex: idx >= 0 ? idx : -1
         })
         this.recalcWarranty()
         wx.showToast({ title: '识别成功，请确认型号', icon: 'none' })
       } else {
-        this.setData({ scanned: { raw: res.result, found: false } })
+        this.setData({ scanned: { raw: r.raw || res.result, found: false } })
         wx.showToast({ title: r.msg || '未识别，请手动补全', icon: 'none' })
       }
-    } catch (e) {
-      if (e.errMsg && e.errMsg.indexOf('cancel') > -1) return
-      wx.showToast({ title: '扫码失败', icon: 'none' })
-    } finally {
-      this.setData({ recognizing: false })
-    }
-  },
-
-  /** 扫能效标识二维码：wx.scanCode(qrCode) → getBarcodeInfo.parseEnergyLabel → 回填表单 */
-  async scanEnergyLabel() {
-    // 编辑模式下禁止重新扫码
-    if (this.data.isEditMode) {
-      wx.showToast({
-        title: '编辑模式下无法重新扫描',
-        icon: 'none'
-      })
-      return
-    }
-
-    this.setData({ recognizing: true })
-    try {
-      const res = await new Promise((resolve, reject) => {
-        wx.scanCode({
-          scanType: ['qrCode'],
-          onlyFromCamera: true,
-          success: resolve,
-          fail: reject
-        })
-      })
-      const result = await wx.cloud.callFunction({
-        name: 'getBarcodeInfo',
-        data: { action: 'parseEnergyLabel', qrContent: res.result }
-      })
-      const r = result.result
-      if (!r || r.code !== 0) {
-        wx.showToast({ title: (r && r.msg) || '识别失败', icon: 'none' })
-        return
-      }
-      const d = r.data || {}
-      // 官方能效备案 URL：无法自动取品牌型号，弹窗引导用户手动填写
-      if (d.needManual) {
-        wx.showModal({
-          title: '请手动填写',
-          content: (d.hint || '请查看扫码页面') + '（备案号：' + (d.productId || '') + '）',
-          showCancel: false,
-          confirmText: '知道了'
-        })
-        return
-      }
-      const { brand, model, category } = d
-      const idx = CATEGORIES.indexOf(category)
-      this.setData({
-        scanned: { found: true, brand, model, category, name: brand + ' ' + category },
-        'form.brand': brand,
-        'form.category': category,
-        'form.model': model,
-        'form.name': brand + ' ' + category,
-        categoryIndex: idx >= 0 ? idx : -1
-      })
-      this.recalcWarranty()
-      wx.showToast({ title: '识别成功，请确认型号', icon: 'none' })
     } catch (e) {
       if (e.errMsg && e.errMsg.indexOf('cancel') > -1) return
       wx.showToast({ title: '扫码失败', icon: 'none' })

@@ -96,3 +96,11 @@
 .empty-btn {
   width: 320rpx;
 }
+
+.archive-entry {
+  font-size: 26rpx;
+  color: #0F6E56;
+  text-align: center;
+  padding: 20rpx 0;
+  margin-bottom: 8rpx;
+}

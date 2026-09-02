@@ -77,16 +77,56 @@ Page({
     })
   },
 
+  /** 归档（一级删除，可恢复） */
+  archiveDevice() {
+    wx.showModal({
+      title: '归档该设备',
+      content: '归档后该设备将移入「已归档」列表，可随时恢复。确定归档？',
+      confirmText: '归档',
+      confirmColor: '#BA7517',
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await cloud.call('familyService', { action: 'archiveDevice', id: this.data.id })
+          wx.showToast({ title: '已归档', icon: 'success' })
+          setTimeout(() => wx.navigateBack(), 500)
+        } catch (e) {
+          wx.showToast({ title: e.message || '归档失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  /** 从归档恢复 */
+  restoreDevice() {
+    wx.showModal({
+      title: '恢复设备',
+      content: '将该设备恢复到设备列表？',
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await cloud.call('familyService', { action: 'restoreDevice', id: this.data.id })
+          wx.showToast({ title: '已恢复', icon: 'success' })
+          setTimeout(() => wx.navigateBack(), 500)
+        } catch (e) {
+          wx.showToast({ title: e.message || '恢复失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
+  /** 永久删除（真删除，不可恢复） */
   deleteDevice() {
     wx.showModal({
-      title: '删除设备',
-      content: '确认删除该设备档案？',
+      title: '永久删除',
+      content: '删除后该设备档案将不可恢复，确定永久删除？',
+      confirmText: '删除',
       confirmColor: '#A32D2D',
       success: async (r) => {
         if (!r.confirm) return
         try {
           await cloud.call('familyService', { action: 'deleteDevice', id: this.data.id })
-          wx.showToast({ title: '已删除', icon: 'success' })
+          wx.showToast({ title: '已永久删除', icon: 'success' })
           setTimeout(() => wx.navigateBack(), 500)
         } catch (e) {
           wx.showToast({ title: e.message || '删除失败', icon: 'none' })
