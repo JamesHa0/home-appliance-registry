@@ -60,3 +60,12 @@
   margin-top: 24rpx;
   line-height: 1.6;
 }
+
+.privacy-entry {
+  font-size: 24rpx;
+  color: #0F6E56;
+  text-align: center;
+  margin-top: 20rpx;
+  padding: 12rpx 0;
+  text-decoration: underline;
+}

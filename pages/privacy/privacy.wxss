@@ -1,0 +1,51 @@
+.container {
+  padding: 32rpx 32rpx 64rpx;
+  background: #f5f6f8;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.meta {
+  font-size: 24rpx;
+  color: #888780;
+  margin-bottom: 24rpx;
+}
+
+.section {
+  background: #ffffff;
+  border-radius: 12rpx;
+  padding: 28rpx 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.h {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin-bottom: 16rpx;
+}
+
+.p {
+  font-size: 26rpx;
+  color: #555555;
+  line-height: 1.8;
+}
+
+.li {
+  font-size: 26rpx;
+  color: #555555;
+  line-height: 1.8;
+  margin-bottom: 8rpx;
+}
+
+.back-btn {
+  margin-top: 16rpx;
+  background: #0F6E56;
+  color: #ffffff;
+  font-size: 30rpx;
+  border-radius: 12rpx;
+}
+
+.back-btn::after {
+  border: none;
+}

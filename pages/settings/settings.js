@@ -17,6 +17,10 @@ Page({
     this.load()
   },
 
+  goPrivacy() {
+    wx.navigateTo({ url: '/pages/privacy/privacy' })
+  },
+
   async load() {
     this.setData({ loading: true })
     try {

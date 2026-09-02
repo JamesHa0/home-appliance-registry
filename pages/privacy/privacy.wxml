@@ -1,0 +1,72 @@
+<view class="container">
+  <view class="meta">更新日期：{{updateDate}}</view>
+
+  <view class="section">
+    <view class="h">一、引言</view>
+    <view class="p">「知屋家电保修簿」（以下简称"本小程序"）非常重视你的个人信息与隐私保护。本政策向你说明我们如何收集、使用、存储和保护你的信息，以及你所享有的权利。使用本小程序即表示你已阅读并同意本政策。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">二、我们收集的信息</view>
+    <view class="p">为实现产品功能，我们仅收集以下必要信息：</view>
+    <view class="li">1. 微信昵称与头像：仅当你主动在"家庭"页设置时收集，用于家庭成员之间的相互识别；</view>
+    <view class="li">2. 用户标识（OpenID）：由微信登录体系提供，用于标识你的账号、校验家庭成员关系；</view>
+    <view class="li">3. 设备信息：你主动录入的家电品牌、型号、购买日期、保修信息及条码，用于建档与保修提醒；</view>
+    <view class="li">4. 订阅记录：你订阅保修到期提醒时生成的推送凭证及设备关联关系；</view>
+    <view class="li">5. 型号贡献：仅当你主动勾选"贡献型号"时，将品牌、型号等非个人字段加入公共型号库，不包含你的个人身份信息。</view>
+    <view class="p">我们不收集你的位置、通讯录、相册、短信等其他信息。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">三、信息的使用</view>
+    <view class="li">1. 创建和管理你的家电档案，计算保修到期时间；</view>
+    <view class="li">2. 通过你输入的邀请码实现家庭共享，家庭成员共同查看与管理设备；</view>
+    <view class="li">3. 在你订阅后，于保修到期前通过微信服务通知向你推送一条提醒消息；</view>
+    <view class="li">4. 匹配官方召回公告并向你展示与你的设备相关的召回提示。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">四、隐私接口的使用说明</view>
+    <view class="li">1. 摄像头（扫码）：仅在你点击"扫码识别"时调用 wx.scanCode，用于读取家电条码或能效标识二维码，不用于拍摄存储照片或视频；</view>
+    <view class="li">2. 头像选择：仅在你点击头像编辑时调用微信头像选择能力，获取的头像仅用于家庭内成员展示；</view>
+    <view class="li">3. 剪贴板：在你点击"复制邀请码"或"复制链接"时调用，仅写入内容，不读取你的剪贴板历史。</view>
+    <view class="p">以上接口调用前均会通过微信官方隐私授权弹窗征得你的同意，你可以拒绝，拒绝后相关功能将不可用，但不影响其他功能的使用。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">五、信息的存储与保护</view>
+    <view class="li">1. 你的信息存储于微信云开发（数据境内存储），传输过程采用微信侧加密通道；</view>
+    <view class="li">2. 设备、家庭、订阅等数据仅能通过服务端校验后访问，客户端无法越权读写他人数据；</view>
+    <view class="li">3. 我们不会向任何第三方出售你的个人信息；除为提供服务所必需（如微信订阅消息下发）外，不对外共享。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">六、家庭共享的特别说明</view>
+    <view class="p">你加入家庭后，该家庭内的设备信息对所有家庭成员可见。请仅与信任的家人共享家庭邀请码。你可以随时退出家庭；家庭创建者可以解散家庭，解散后该家庭的全部设备记录将被删除。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">七、你的权利</view>
+    <view class="li">1. 随时在"家庭"页修改或删除你的昵称与头像；</view>
+    <view class="li">2. 随时删除你录入的设备记录（删除后相关订阅一并清除）；</view>
+    <view class="li">3. 随时退出所在家庭，或（创建者）解散家庭；</view>
+    <view class="li">4. 拒绝隐私授权，或在微信"设置-小程序"中管理授权。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">八、未成年人保护</view>
+    <view class="p">本小程序面向一般用户。若你是未满 14 周岁的未成年人，请在监护人陪同下阅读本政策，并在征得监护人同意后使用本小程序和提交信息。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">九、政策的更新</view>
+    <view class="p">我们可能适时修订本政策。重大变更时，我们将在小程序内显著位置提示。请你定期查阅本政策以了解最新内容。</view>
+  </view>
+
+  <view class="section">
+    <view class="h">十、联系我们</view>
+    <view class="p">如对本政策有任何疑问、意见或建议，可通过小程序内功能反馈渠道与我们联系，我们将在 15 个工作日内回复。</view>
+  </view>
+
+  <button class="back-btn" bindtap="goBack">返回</button>
+</view>

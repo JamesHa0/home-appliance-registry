@@ -5,7 +5,8 @@
     "pages/device-detail/device-detail",
     "pages/family/family",
     "pages/policy/policy",
-    "pages/settings/settings"
+    "pages/settings/settings",
+    "pages/privacy/privacy"
   ],
   "window": {
     "backgroundColor": "#F5F6F8",
@@ -20,10 +21,30 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
-      { "pagePath": "pages/index/index", "text": "家电" },
-      { "pagePath": "pages/family/family", "text": "家庭" },
-      { "pagePath": "pages/policy/policy", "text": "政策" },
-      { "pagePath": "pages/settings/settings", "text": "提醒" }
+      {
+        "pagePath": "pages/index/index",
+        "text": "家电",
+        "iconPath": "assets/icons/tab-home.png",
+        "selectedIconPath": "assets/icons/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/family/family",
+        "text": "家庭",
+        "iconPath": "assets/icons/tab-family.png",
+        "selectedIconPath": "assets/icons/tab-family-active.png"
+      },
+      {
+        "pagePath": "pages/policy/policy",
+        "text": "政策",
+        "iconPath": "assets/icons/tab-policy.png",
+        "selectedIconPath": "assets/icons/tab-policy-active.png"
+      },
+      {
+        "pagePath": "pages/settings/settings",
+        "text": "提醒",
+        "iconPath": "assets/icons/tab-remind.png",
+        "selectedIconPath": "assets/icons/tab-remind-active.png"
+      }
     ]
   },
   "style": "v2",
