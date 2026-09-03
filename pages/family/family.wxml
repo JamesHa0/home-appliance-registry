@@ -29,6 +29,13 @@
           </view>
         </view>
         <text wx:if="{{item.isMe}}" class="member-edit" catchtap="openProfileEdit">编辑</text>
+        <text
+          wx:if="{{isOwner && !item.isOwner && !item.isMe}}"
+          class="member-remove"
+          catchtap="removeMember"
+          data-openid="{{item.openid}}"
+          data-label="{{item.label}}"
+        >移除</text>
       </view>
     </view>
 

@@ -160,6 +160,28 @@ Page({
     this.setData({ editNickname: e.detail.value })
   },
 
+  /** 创建者移除成员：仅 owner 可见的入口，二次确认后调用云函数 */
+  async removeMember(e) {
+    const openid = e.currentTarget.dataset.openid
+    const label = e.currentTarget.dataset.label || '该成员'
+    wx.showModal({
+      title: '移除成员',
+      content: `确定将「${label}」移出家庭？移除后该成员将无法查看本家庭设备`,
+      confirmText: '移除',
+      confirmColor: '#A32D2D',
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await cloud.call('familyService', { action: 'removeMember', memberOpenid: openid })
+          wx.showToast({ title: '已移除', icon: 'success' })
+          this.load()
+        } catch (err) {
+          wx.showToast({ title: err.message || '移除失败', icon: 'none' })
+        }
+      }
+    })
+  },
+
   async saveProfile() {
     if (this.data.savingProfile) return
     const nickname = this.data.editNickname.trim()

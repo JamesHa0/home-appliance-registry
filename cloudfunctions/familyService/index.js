@@ -488,6 +488,50 @@ exports.main = async (event) => {
         return ok(true)
       }
 
+      case 'removeMember': {
+        // 创建者将成员移出家庭：仅 owner 可调，目标须为家庭成员且非 owner 本人
+        const fam = await getFamilyByOpenid(OPENID)
+        if (!fam) return fail('暂无家庭')
+        if (fam.ownerOpenid !== OPENID) {
+          return fail('只有家庭创建者可以移除成员', 400)
+        }
+        const target = String(event.memberOpenid || '')
+        if (!target) return fail('缺少成员 openid')
+        if (target === OPENID) {
+          return fail('创建者不能移除自己，如需解散请使用「解散家庭」', 400)
+        }
+        const members = fam.members || []
+        if (!members.includes(target)) return fail('该成员不在当前家庭中')
+
+        // 清理该成员在本家庭设备上的保修提醒订阅，避免被移除后仍收到原家庭推送
+        const kickDevices = await db.collection('devices')
+          .where({ familyId: fam._id })
+          .limit(1000)
+          .get()
+          .catch(() => ({ data: [] }))
+        const kickDeviceIds = (kickDevices.data || []).map(d => d._id)
+        if (kickDeviceIds.length) {
+          await db.collection('subscriptions')
+            .where({ openid: target, deviceId: _.in(kickDeviceIds) })
+            .remove()
+            .catch(() => {})
+        }
+
+        // 从成员列表移除（设备档案属家庭级数据，保留在家庭内）
+        await db.collection('families').doc(fam._id).update({
+          data: { members: _.pull(target) }
+        })
+
+        console.log('[FamilyService] Member removed by owner:', {
+          familyId: fam._id,
+          owner: OPENID.slice(-8),
+          member: target.slice(-8),
+          cleanedSubscriptions: kickDeviceIds.length
+        })
+
+        return ok(true)
+      }
+
       case 'dissolveFamily': {
         // 解除创建者死锁：joinFamily 拒绝多家庭 + leaveFamily 拒绝 owner 后，
         // owner 需要一个出口 —— 解散家庭（级联删除设备与订阅），之后可重新创建或加入其他家庭
