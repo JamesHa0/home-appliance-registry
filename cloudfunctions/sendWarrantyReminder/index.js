@@ -50,8 +50,9 @@ exports.main = async () => {
   let failed = 0
 
   for (const dev of devices.data) {
+    // 过滤已标记 invalid 的记录（连续 3 次发送失败），避免永久失败记录每日反复重试
     const subs = await db.collection('subscriptions')
-      .where({ deviceId: dev._id, used: false })
+      .where({ deviceId: dev._id, used: false, invalid: _.neq(true) })
       .get()
 
     for (const s of subs.data) {
