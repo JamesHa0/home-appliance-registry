@@ -42,6 +42,7 @@
       { "type": "folder", "value": "tests" },
       { "type": "folder", "value": "reviews" },
       { "type": "folder", "value": "node_modules" },
+      { "type": "folder", "value": "assets/logo" },
       { "type": "file", "value": ".gitignore" },
       { "type": "file", "value": "package.json" },
       { "type": "file", "value": "package-lock.json" },
