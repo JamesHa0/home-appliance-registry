@@ -86,7 +86,7 @@
 }
 
 .delete-btn {
-  margin-top: 24rpx;
+  flex: 1;
   color: var(--danger);
   background: var(--danger-light);
 }
@@ -101,7 +101,7 @@
 
 .edit-btn {
   flex: 1;
-  background-color: #09B;
+  background-color: var(--primary);
   color: white;
   border-radius: 8rpx;
   font-size: 28rpx;
@@ -121,5 +121,8 @@
   border-radius: 8rpx;
   font-size: 28rpx;
   padding: 20rpx 0;
-  margin-top: 24rpx;
+}
+
+.service-row-hover {
+  background: var(--primary-light);
 }

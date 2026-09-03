@@ -1,13 +1,30 @@
 const format = require('../../utils/format')
 const cloud = require('../../utils/cloud')
 
-// 品牌售后入口（官方客服电话，来自品牌公开服务信息；可扩展为云数据库表）
+// 品牌售后入口（官方客服电话与官网服务页，来自品牌公开服务信息；可扩展为云数据库表）
+// 电话仅收录可确认的官方号码，不确定的只给 link，前端兜底提示拨打 114
 const AFTER_SALES = {
   '美的': { phone: '4008899315', link: 'https://www.midea.com/support' },
   '海尔': { phone: '4006999999', link: 'https://www.haier.com/support/' },
+  '统帅': { phone: '4006999999', link: 'https://www.haier.com/support/' },
   '小米': { phone: '4001005678', link: 'https://www.mi.com/service/' },
+  '米家': { phone: '4001005678', link: 'https://www.mi.com/service/' },
   '格力': { phone: '4008365315', link: 'https://www.gree.com.cn/service/' },
-  '海信': { phone: '4006111111', link: 'https://www.hisense.com/service' }
+  '海信': { phone: '4006111111', link: 'https://www.hisense.com/service' },
+  '奥克斯': { link: 'https://www.aux.com.cn/' },
+  'TCL': { link: 'https://www.tcl.com/cn/zh' },
+  '创维': { link: 'https://www.skyworth.com/' },
+  '长虹': { link: 'https://www.changhong.com/' },
+  '康佳': { link: 'https://www.konka.com/' },
+  '松下': { link: 'https://www.panasonic.cn/' },
+  '博世': { link: 'https://www.bosch-home.cn/' },
+  '西门子': { link: 'https://www.siemens-home.cn/' },
+  '方太': { link: 'https://www.fotile.com/' },
+  '老板': { link: 'https://www.robam.com/' },
+  '华帝': { link: 'https://www.vatti.com.cn/' },
+  '万和': { link: 'https://www.vanward.com/' },
+  '九阳': { link: 'https://www.joyoung.com/' },
+  '苏泊尔': { link: 'https://www.supor.com.cn/' }
 }
 
 Page({
@@ -59,14 +76,38 @@ Page({
   },
 
   openManual() {
-    const { device } = this.data
-    if (!device || !device.brand) return
-    // 说明书跳转品牌官方服务支持页（不本地存储 PDF，规避版权）
-    const link = (this.data.afterSale && this.data.afterSale.link) || 'https://www.baidu.com'
-    wx.setClipboardData({
-      data: link,
-      success: () => wx.showToast({ title: '官网链接已复制，请在浏览器打开', icon: 'none' })
-    })
+    try {
+      const device = this.data.device || {}
+      const brand = device.brand || ''
+      // 链接优先级：扫码命中型号库时保存的说明书页 > 品牌官方服务页 > 搜索"品牌 官方售后"
+      const link = device.manualUrl
+        || (this.data.afterSale && this.data.afterSale.link)
+        || 'https://www.baidu.com/s?wd=' + encodeURIComponent(brand + ' 家电 售后 官网')
+
+      wx.setClipboardData({
+        data: link,
+        success: () => {
+          // 用 modal 而非 toast：展示复制到的实际链接，给用户明确的可视证据
+          wx.showModal({
+            title: '链接已复制',
+            content: '已复制到剪贴板：\n' + link + '\n\n请打开手机浏览器，长按地址栏粘贴访问',
+            showCancel: false,
+            confirmText: '知道了'
+          })
+        },
+        fail: (err) => {
+          console.error('[device-detail] setClipboardData fail:', err)
+          wx.showToast({
+            title: '复制失败：' + ((err && err.errMsg) || '未知原因'),
+            icon: 'none',
+            duration: 3000
+          })
+        }
+      })
+    } catch (e) {
+      console.error('[device-detail] openManual error:', e)
+      wx.showToast({ title: '操作异常：' + (e.message || '未知错误'), icon: 'none', duration: 3000 })
+    }
   },
 
   /** 跳转到编辑页面 */

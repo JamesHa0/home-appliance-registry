@@ -300,6 +300,7 @@ exports.main = async (event) => {
           warrantyYears: d.warrantyYears || 0,
           warrantyEnd: d.warrantyEnd || '',
           barcode: d.barcode || '',
+          manualUrl: d.manualUrl || '',
           archived: false,
           archivedAt: null,
           createdAt: db.serverDate()

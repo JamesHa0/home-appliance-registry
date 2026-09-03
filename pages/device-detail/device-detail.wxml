@@ -32,7 +32,7 @@
     <!-- 服务入口 -->
     <view class="card">
       <view class="card-title">服务入口</view>
-      <view wx:if="{{afterSale}}" class="service-row">
+      <view wx:if="{{afterSale && afterSale.phone}}" class="service-row">
         <text class="service-label">官方客服</text>
         <text class="service-phone" bindtap="callPhone" data-phone="{{afterSale.phone}}">{{afterSale.phone}}</text>
       </view>
@@ -40,9 +40,9 @@
         <text class="service-label">官方客服</text>
         <text class="service-phone">拨打 114 查询 {{device.brand}} 售后</text>
       </view>
-      <view class="service-row">
+      <view class="service-row" hover-class="service-row-hover" bindtap="openManual">
         <text class="service-label">说明书</text>
-        <text class="service-action" bindtap="openManual">复制官网说明书入口 →</text>
+        <text class="service-action">复制官网说明书入口 →</text>
       </view>
     </view>
 

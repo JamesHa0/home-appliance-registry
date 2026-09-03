@@ -168,8 +168,7 @@ Page({
           'form.brand': brand,
           'form.category': category,
           'form.model': model,
-          // 别称：仅在用户尚未输入时才用识别结果预填，避免覆盖用户手动填写的别称
-          ...(this.data.form.name ? {} : { 'form.name': brand + ' ' + category }),
+          // 别称栏保持空白，不主动预填 —— 用户不填时由云函数生成默认名（含同家庭重名自动序号）
           categoryIndex: idx >= 0 ? idx : -1
         })
         this.recalcWarranty()
@@ -185,8 +184,7 @@ Page({
           'form.brand': r.brand,
           'form.category': r.category,
           'form.model': r.model || '', // 本地库命中回填真实型号；在线 GS1 反查无型号（后端返回空），留空由用户确认
-          // 别称：仅在用户尚未输入时才用识别结果预填，避免覆盖用户手动填写的别称
-          ...(this.data.form.name ? {} : { 'form.name': r.name || '' }),
+          // 别称栏保持空白，不主动预填 —— 用户不填时由云函数生成默认名（含同家庭重名自动序号）
           categoryIndex: idx >= 0 ? idx : -1
         })
         this.recalcWarranty()
@@ -266,7 +264,9 @@ Page({
           purchaseDate: form.purchaseDate,
           warrantyYears: years,
           warrantyEnd,
-          barcode: (this.data.scanned && this.data.scanned.raw) || ''
+          barcode: (this.data.scanned && this.data.scanned.raw) || '',
+          // 扫码命中型号库时保存的说明书页，详情页「说明书」入口优先使用
+          manualUrl: (this.data.scanned && this.data.scanned.manualUrl) || ''
         },
         contribute: this.data.contribute
       }
