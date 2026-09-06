@@ -8,6 +8,12 @@ const cloud = require('../../utils/cloud')
 
 const CATEGORIES = ['空调', '冰箱', '洗衣机', '电视', '热水器', '油烟机', '电饭煲', '其他']
 
+// 官方「绿色低碳码」小程序 appid（CNIS 出品，能效/水效备案官方查询渠道）。
+// 官方未公开披露 appid：获取方法 = PC 版微信打开该小程序一次，
+// 然后查看 文档\WeChat Files\Applet\ 下新生成的 wx 开头文件夹名。
+// 留空则「已识别官方能效码」弹窗不显示跳转按钮，仅引导手动填写
+const OFFICIAL_ENERGY_APPID = ''
+
 Page({
   data: {
     isEditMode: false, // 是否处于编辑模式
@@ -26,7 +32,6 @@ Page({
     scanned: null,
     recognizing: false,
     saving: false,
-    contribute: true,
     todayMax: format.today()  // Fixed P1-1: Store today as max date for picker
   },
 
@@ -146,13 +151,29 @@ Page({
       // ---------- 能效标识二维码 ----------
       if (r.kind === 'energylabel') {
         // 官方备案 URL：能效备案信息不自动抓取（官方未授权第三方查询/展示），引导手动填写
+        // 可选跳转官方「绿色低碳码」小程序查验真伪 —— appid 官方未公开披露，
+        // 获取方法见 README「配置项」；留空时弹窗仅提示手动填写
         if (r.needManual) {
+          const canJump = !!OFFICIAL_ENERGY_APPID
           this.setData({ scanned: { raw: '能效码' + (r.productId ? ' ' + r.productId : ''), found: false } })
           wx.showModal({
-            title: '请手动填写',
-            content: (r.hint || '请查看扫码页面') + (r.productId ? '（备案号：' + r.productId + '）' : ''),
-            showCancel: false,
-            confirmText: '知道了'
+            title: '已识别官方能效码',
+            content: (r.hint || '备案数据未授权第三方自动展示，请对照标识下方印制的品牌与型号填写') +
+              (r.productId ? '（备案号：' + r.productId + '）' : ''),
+            showCancel: canJump,
+            confirmText: canJump ? '去官方查验' : '知道了',
+            cancelText: '手动填写',
+            success: (m) => {
+              if (!canJump || !m.confirm) return
+              wx.navigateToMiniProgram({
+                appId: OFFICIAL_ENERGY_APPID,
+                // 官方未公开页面参数契约，extraData 仅预留，落到首页由用户自行扫码查询
+                extraData: { productId: r.productId || '' },
+                fail: () => {
+                  wx.showToast({ title: '跳转失败，可在微信搜索「绿色低碳码」', icon: 'none' })
+                }
+              })
+            }
           })
           return
         }
@@ -195,7 +216,16 @@ Page({
       }
     } catch (e) {
       if (e.errMsg && e.errMsg.indexOf('cancel') > -1) return
-      wx.showToast({ title: '扫码失败', icon: 'none' })
+      // 扫码失败（对焦/反光/角度等）给出明确的重试与手动录入引导，而非一句 toast
+      wx.showModal({
+        title: '二维码识别失败',
+        content: '请对准能效标识上的二维码重试；也可手动录入标识下方印制的品牌与型号。',
+        confirmText: '重新扫码',
+        cancelText: '手动填写',
+        success: (r2) => {
+          if (r2.confirm) this.scan()
+        }
+      })
     } finally {
       this.setData({ recognizing: false })
     }
@@ -216,10 +246,6 @@ Page({
   onDate(e) {
     this.setData({ 'form.purchaseDate': e.detail.value })
     this.recalcWarranty()
-  },
-
-  onContributeChange(e) {
-    this.setData({ contribute: e.detail.value })
   },
 
   /** 按品牌×品类规则自动计算保修年限与到期日 */
@@ -267,8 +293,7 @@ Page({
           barcode: (this.data.scanned && this.data.scanned.raw) || '',
           // 扫码命中型号库时保存的说明书页，详情页「说明书」入口优先使用
           manualUrl: (this.data.scanned && this.data.scanned.manualUrl) || ''
-        },
-        contribute: this.data.contribute
+        }
       }
       
       if (isEditMode) {
@@ -282,7 +307,6 @@ Page({
         params.purchaseDate = form.purchaseDate
         params.warrantyYears = years
         params.warrantyEnd = warrantyEnd
-        delete params.contribute // 更新模式不需要 UGC 贡献
       }
       
       const res = await cloud.call('familyService', params)

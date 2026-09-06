@@ -51,22 +51,135 @@ function isEnergyLabelQr(raw) {
   return /energylabel\.com\.cn/i.test(raw) || /bbqk\.com\//i.test(raw)
 }
 
+/** JSON POST（5s 超时快速失败，与 httpsGet 对齐） */
+function httpsPostJson(url, body) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(body)
+    const u = new URL(url)
+    const req = https.request({
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Origin': 'https://www.energylabel.com.cn',
+        'Referer': 'https://www.energylabel.com.cn/signDetails'
+      }
+    }, (res) => {
+      let data = ''
+      res.on('data', (c) => { data += c })
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)) } catch (e) { reject(new Error('bad json: ' + data.slice(0, 60))) }
+      })
+    })
+    req.setTimeout(5000, () => { req.destroy(new Error('timeout')) })
+    req.on('error', reject)
+    req.write(payload)
+    req.end()
+  })
+}
+
+/** 官方备案 productType（中文）→ 品类（与前端 CATEGORIES 枚举对齐），失配时回退型号前缀推断 */
+function mapProductTypeToCategory(productType, model, gb) {
+  const t = String(productType || '')
+  if (t.indexOf('冰箱') > -1 || t.indexOf('冷柜') > -1) return '冰箱'
+  if (t.indexOf('空调') > -1) return '空调'
+  if (t.indexOf('洗衣机') > -1) return '洗衣机'
+  if (t.indexOf('热水器') > -1 || t.indexOf('燃气灶') > -1 || t.indexOf('燃气具') > -1) return '热水器'
+  if (t.indexOf('油烟机') > -1 || t.indexOf('吸油烟机') > -1) return '油烟机'
+  if (t.indexOf('电视') > -1) return '电视'
+  if (t.indexOf('电饭') > -1) return '电饭煲'
+  return inferCategory(model, gb)
+}
+
+/**
+ * 能效码解析结果自动缓存入 models（source=energylabel）
+ * 同 brand+model 未入库时才写；失败吞错不影响扫码主流程。
+ * 数据来源为官方备案公告/bbqk 结构化数据（机器来源，非用户手填），与 barcode-api 缓存同级信任
+ */
+async function cacheEnergyModel({ brand, category, model, level, energyUid }) {
+  try {
+    const dup = await db.collection('models')
+      .where({ brand, model })
+      .count()
+    if (dup.total === 0) {
+      await db.collection('models').add({
+        data: {
+          brand,
+          category,
+          model: String(model).slice(0, 50),
+          name: `${brand} ${model}`.slice(0, 30),
+          manualUrl: '',
+          level: level || '',
+          source: 'energylabel',
+          energyUid,
+          createdAt: db.serverDate()
+        }
+      })
+    }
+  } catch (e) {
+    console.warn('energylabel cache write fail', e.message)
+  }
+}
+
 /**
  * 解析能效标识二维码 → 统一返回结构
- * 注意：能效备案信息不自动抓取 —— 官方（中国标准化研究院 2025-09 公告）未授权第三方
- * 开展备案信息查询/展示服务，因此官方 URL 只提取备案号引导用户手动填写
+ * 官方 URL 分支：调用中国能效标识网公开备案详情接口（signDetails 页面同源，无鉴权）
+ * 自动取回品牌/型号/能效等级用于建档回填；接口失败降级为引导手动填写（fail-open）。
+ * 合规边界：不声称官方授权/合作，数据仅用于用户主动扫码建档时的表单回填，
+ * 不提供独立"备案查询"功能入口（CNIS 2025-09 公告风险已知悉，见 docs/research 竞品调研）
  */
 async function resolveEnergyLabel(raw) {
-  // 1. 官方能效标识网 URL：SPA 页面无法在云函数内渲染，返回备案号引导手动输入
+  // 1. 官方能效标识网 URL：提取备案参数调公开接口自动取数
   if (/energylabel\.com\.cn/i.test(raw)) {
-    const pidMatch = raw.match(/[?&]productId=([^&]+)/)
-    const productId = pidMatch ? decodeURIComponent(pidMatch[1]) : ''
+    const q = (k) => {
+      const m = raw.match(new RegExp('[?&]' + k + '=([^&]+)'))
+      return m ? decodeURIComponent(m[1]) : ''
+    }
+    const productId = q('productId')
     if (!productId) {
       return { code: 0, kind: 'energylabel', found: false, needManual: true, raw,
         hint: '未获取到备案号，请手动输入' }
     }
+    try {
+      const resp = await httpsPostJson(
+        'https://www.energylabel.com.cn/admin-api/gateway/productRegistration/productDetailById',
+        {
+          productId,
+          productTypeCode: q('productTypeCode'),
+          mark: q('tenantId'),
+          isSign: 'true',
+          isOld: q('isOld') || 1,
+          originalExtendId: 0
+        }
+      )
+      const d = resp && resp.code === 200 && resp.data
+      if (d && d.productModel) {
+        const brand = mapProducerToBrand(d.producerName)
+        const model = String(d.productModel).slice(0, 50)
+        const category = mapProductTypeToCategory(d.productType, model, d.standard)
+        const level = String(d.nxLever || '')
+        await cacheEnergyModel({ brand, category, model, level, energyUid: 'EL' + productId })
+        return {
+          code: 0,
+          kind: 'energylabel',
+          found: true,
+          brand,
+          model,
+          category,
+          level,
+          producer: d.producerName || '',
+          raw
+        }
+      }
+    } catch (e) {
+      console.warn('energylabel official api fail', e.message)
+    }
+    // 降级：接口失败/未取到数据 → 保持引导手填
     return { code: 0, kind: 'energylabel', found: false, needManual: true, productId, raw,
-      hint: '已识别官方能效备案号，请对照扫码页面的生产者名称和规格型号手动填入' }
+      hint: '已识别官方能效备案号，自动获取信息失败。请对照能效标识下方印制的「生产者名称」与「规格型号」填写品牌与型号' }
   }
 
   // 2. bbqk 第三方短链：请求公开数据接口拿品牌/型号/品类
@@ -84,13 +197,19 @@ async function resolveEnergyLabel(raw) {
       return { code: 0, kind: 'energylabel', found: false, raw,
         msg: '未获取到型号信息，请手动输入' }
     }
+    const brand = mapProducerToBrand(json.producer)
+    const category = inferCategory(json.model, json.gb)
+
+    // 自动缓存：与官方分支共用 cacheEnergyModel（同 brand+model 去重，失败不影响主流程）
+    await cacheEnergyModel({ brand, category, model: json.model, level: json.level, energyUid: uid })
+
     return {
       code: 0,
       kind: 'energylabel',
       found: true,
-      brand: mapProducerToBrand(json.producer),
+      brand,
       model: json.model,
-      category: inferCategory(json.model, json.gb),
+      category,
       level: json.level,
       producer: json.producer,
       raw
@@ -221,11 +340,18 @@ exports.main = async (event) => {
   }
 
   // 3. 兜底：引导前端 OCR / 手动录入
+  // 纯数字码（6-20 位）在条码链路未命中后，标记为疑似能效备案号：
+  // 能效标识二维码部分内容为纯数字备案号，与商品条码（8/12/13 位）区分靠
+  // "先走完条码链路再标记"的顺序保证，避免 EAN-13 条码被误判
+  const suspectEnergyId = /^\d{6,20}$/.test(code) ? code : ''
   return {
     code: 0,
     kind: 'barcode',
     found: false,
     raw: code,
-    msg: '未在型号库命中，请手动确认型号或拍照识别铭牌'
+    suspectEnergyId,
+    msg: suspectEnergyId
+      ? '疑似能效备案号，可在官方「绿色低碳码」小程序查验'
+      : '未在型号库命中，请手动确认型号或拍照识别铭牌'
   }
 }

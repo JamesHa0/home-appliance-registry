@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- **扫码建档** — 扫描商品条码,本地型号库反查,支持手动录入与型号贡献(UGC)
+- **扫码建档** — 扫描商品条码,本地型号库反查,支持手动录入
 - **保修管理** — 按品牌 × 品类保修年限规则自动计算,首页倒计时提醒,到期下发一次性订阅推送
 - **家庭共享** — 创建/加入家庭,邀请码机制,家庭成员共享设备数据
 - **政策与召回** — 国补/以旧换新政策聚合,召回公告按型号匹配并在设备详情标红
@@ -23,7 +23,7 @@ home-appliance-registry/
 ├── project.config.json               项目配置
 ├── pages/
 │   ├── index/                        首页:设备列表 + 待办提醒条
-│   ├── add-device/                   建档页:扫码 → 条码反查 → 表单(含型号库 UGC 开关)
+│   ├── add-device/                   建档页:扫码 → 条码反查 → 表单
 │   ├── device-detail/                详情:保修状态、说明书入口、售后电话、删除
 │   ├── family/                       家庭:创建/邀请码加入/成员
 │   ├── policy/                       政策:国补/以旧换新/召回公告聚合
@@ -55,13 +55,14 @@ home-appliance-registry/
 | 云开发环境 ID | `config.local.js`(模板:`config.local.js.sample`) | `app.js` 以占位 `free-xxxxxxxx` 读取,真实值不进公开仓库 |
 | 订阅消息模板 ID | `pages/settings/settings.js`、`cloudfunctions/sendWarrantyReminder/index.js` | 公众平台申请后替换 2 处 `YOUR_WARRANTY_TEMPLATE_ID` |
 | 条码查询 API Key | `cloudfunctions/getBarcodeInfo/index.js` | 可选,留空仅走本地型号库 |
+| 官方绿色低碳码 appid | `pages/add-device/add-device.js` 的 `OFFICIAL_ENERGY_APPID` | 可选,填入后「已识别官方能效码」弹窗出现「去官方查验」跳转按钮;获取方法:PC 版微信打开该小程序一次,查看 `文档\WeChat Files\Applet\` 下 wx 开头的新文件夹名 |
 
 ## 云函数
 
 | 函数 | 说明 |
 |------|------|
 | `familyService` | 家庭与设备 CRUD 统一入口,所有读写经此函数并基于 OPENID 校验成员关系 |
-| `getBarcodeInfo` | 条码反查:本地型号库 → 条码 API → 模糊匹配 |
+| `getBarcodeInfo` | 条码反查:本地型号库 → 条码 API → 模糊匹配;能效码(官方备案接口/bbqk)自动取数并缓存(source=energylabel),接口失败降级手填 |
 | `scanRecall` | 召回公告定时抓取(每天 02:00) |
 | `sendWarrantyReminder` | 保修到期提醒(每天 09:00 扫描 7 天内到期,下发一次性订阅) |
 
@@ -73,7 +74,7 @@ home-appliance-registry/
 |------|------|------|
 | `devices` | 仅云函数可访问 | 设备档案,客户端一律经 `familyService` |
 | `families` | 仅云函数可访问 | 家庭与成员关系 |
-| `models` | 所有用户可读 | 品牌型号库(含 UGC 贡献) |
+| `models` | 所有用户可读 | 品牌型号库(种子数据 + 条码 API 缓存) |
 | `policies` | 所有用户可读 | 国补/以旧换新政策 |
 | `recalls` | 所有用户可读 | 官方召回公告 |
 | `subscriptions` | 仅创建者可读写 | 订阅消息记录 |

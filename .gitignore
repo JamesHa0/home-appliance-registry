@@ -20,3 +20,6 @@ miniprogram_npm/
 docs/
 reviews/
 jest.config.js
+
+# 数据备份(含 openid,不进公开仓库)
+db/backup-*.json

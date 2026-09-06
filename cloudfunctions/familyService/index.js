@@ -307,63 +307,6 @@ exports.main = async (event) => {
         }
         const addRes = await db.collection('devices').add({ data: device })
 
-        // UGC：用户勾选贡献且型号库无此 brand+model 时写入（source=ugc）
-        if (event.contribute && d.brand && d.model) {
-          const ugcBrand = String(d.brand).trim().slice(0, 20)
-          const ugcModel = String(d.model).trim().slice(0, 50)
-          const ugcName = String(d.name || '').trim().slice(0, 30)
-          const dup = await db.collection('models')
-            .where({ brand: ugcBrand, model: ugcModel })
-            .count()
-          
-          if (dup.total === 0) {
-            let isSafe = false
-            try {
-              // P0-4：内容安全检测（msgSecCheck v2 云调用）
-              // 参数契约：content 必须是字符串；version/openid/scene 为平级必填项
-              // 权限：需在本云函数目录 config.json 的 permissions.openapi 声明 security.msgSecCheck
-              const textToCheck = `${ugcBrand} ${ugcModel} ${ugcName}`.slice(0, 2500)
-              const securityResult = await cloud.openapi.security.msgSecCheck({
-                openid: OPENID,
-                scene: 2,        // 2: 评论（用户生成内容）
-                version: 2,
-                content: textToCheck
-              })
-              // 返回结构：{ errcode, result: { suggest: 'pass'|'risky'|'review', label } }
-              const suggest = securityResult && securityResult.result && securityResult.result.suggest
-              isSafe = suggest === 'pass'
-
-              if (!isSafe) {
-                console.warn('[FamilyService] UGC content blocked by security:', {
-                  openid: OPENID.slice(-8),
-                  suggest,
-                  text: textToCheck.slice(0, 20) + '...'
-                })
-              }
-            } catch (error) {
-              // fail-closed：检测接口异常时拒绝入库，防止违规内容借报错绕过检测
-              // （设备本身仍创建成功，仅跳过公开型号库贡献）
-              console.error('[FamilyService] Security check failed, skip UGC contribution:', error)
-              isSafe = false
-            }
-
-            if (isSafe) {
-              await db.collection('models').add({
-                data: {
-                  brand: ugcBrand,
-                  category: String(d.category || '').trim().slice(0, 20),
-                  model: ugcModel,
-                  name: ugcName || (ugcBrand + ' ' + ugcModel),
-                  barcode: String(d.barcode || '').trim().slice(0, 20),
-                  manualUrl: '',
-                  source: 'ugc',
-                  contributedBy: OPENID,
-                  createdAt: db.serverDate()
-                }
-              })
-            }
-          }
-        }
         return ok({ id: addRes._id, familyId: fam._id })
       }
 
