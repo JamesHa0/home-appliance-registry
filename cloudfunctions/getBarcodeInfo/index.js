@@ -284,11 +284,9 @@ exports.main = async (event) => {
     try {
       const resp = await query(mark)
       list = (resp && resp.code === 200 && resp.data && resp.data.list) || []
-      // 能效(854)无结果时回退水效(840)：洗衣机/净水器等品类走水效标识
-      if (!list.length && mark === 854) {
-        const r2 = await query(840)
-        list = (r2 && r2.code === 200 && r2.data && r2.data.list) || []
-      }
+      // 注：不做 mark=840（水效）回退 —— 2026-09-14 实测 840 对洗衣机/冰箱型号均返回 0 条
+      // （洗衣机本身在 854 下有 500 条），该仓库家电类目均走能效门；且水效方向已定为不做。
+      // 如后续真要支持水效，需先测出可用的 mark 值，勿直接复用 840。
     } catch (e) {
       console.warn('searchOfficialModels fail', e.message)
       return { code: 0, list: [] } // fail-open：接口失败静默返回空，前端退回纯手填
