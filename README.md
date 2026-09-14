@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- **扫码建档** — 扫描商品条码,本地型号库反查,支持手动录入
+- **扫码建档** — 扫商品条码或能效标识码自动识别品牌/型号/品类;型号输入框带联想补全(输入型号 → 候选 → 一键回填),未命中时手动录入
 - **保修管理** — 按品牌 × 品类保修年限规则自动计算,首页倒计时提醒,到期下发一次性订阅推送
 - **家庭共享** — 创建/加入家庭,邀请码机制,家庭成员共享设备数据
 - **政策与召回** — 国补/以旧换新政策聚合,召回公告按型号匹配并在设备详情标红
@@ -23,7 +23,7 @@ home-appliance-registry/
 ├── project.config.json               项目配置
 ├── pages/
 │   ├── index/                        首页:设备列表 + 待办提醒条
-│   ├── add-device/                   建档页:扫码 → 条码反查 → 表单
+│   ├── add-device/                   建档页:扫码 → 条码/能效码识别 → 型号联想补全 → 表单
 │   ├── device-detail/                详情:保修状态、说明书入口、售后电话、删除
 │   ├── family/                       家庭:创建/邀请码加入/成员
 │   ├── policy/                       政策:国补/以旧换新/召回公告聚合
@@ -34,7 +34,7 @@ home-appliance-registry/
 │   └── cloud.js                      云函数调用封装
 └── cloudfunctions/
     ├── familyService/                家庭+设备 CRUD 统一入口(成员关系校验,家庭共享核心)
-    ├── getBarcodeInfo/               条码反查(本地型号库 → 条码 API → 模糊匹配)
+    ├── getBarcodeInfo/               条码反查 + 能效码解析 + 型号联想(searchOfficialModels)
     ├── scanRecall/                   召回公告定时抓取
     └── sendWarrantyReminder/         保修到期定时提醒(一次性订阅下发)
 ```
@@ -62,7 +62,7 @@ home-appliance-registry/
 | 函数 | 说明 |
 |------|------|
 | `familyService` | 家庭与设备 CRUD 统一入口,所有读写经此函数并基于 OPENID 校验成员关系 |
-| `getBarcodeInfo` | 条码反查:本地型号库 → 条码 API → 模糊匹配;能效码(官方备案接口/bbqk)自动取数并缓存(source=energylabel),接口失败降级手填 |
+| `getBarcodeInfo` | 条码反查:本地型号库 → 条码 API → 模糊匹配;能效码(官方备案接口/bbqk)自动取数并缓存(source=energylabel),接口失败降级手填;`searchOfficialModels` 按型号模糊搜索备案列表供建档页型号联想补全(默认 `mark=854` 能效,取回后前端只展示 4 条) |
 | `scanRecall` | 召回公告定时抓取(每天 02:00) |
 | `sendWarrantyReminder` | 保修到期提醒(每天 09:00 扫描 7 天内到期,下发一次性订阅) |
 
@@ -84,3 +84,4 @@ home-appliance-registry/
 - 个人主体小程序仅支持一次性订阅消息:保修到期可推送,政策/召回以站内页提醒
 - 订阅模板需在公众平台申请后替换模板 ID
 - 家庭共享涉及用户数据,已通过 `familyService` 的 OPENID 校验限制越权访问
+- 型号联想补全依赖能效标识网公开列表接口(无鉴权、无 SLA):接口失败或无命中时静默退回纯手填,不影响建档;该接口返回的候选仅用于表单回填,应用不提供独立查询入口
