@@ -42,9 +42,21 @@
       </picker>
     </view>
 
-    <view class="form-item">
-      <text class="form-label">型号</text>
-      <input class="form-input" placeholder="机身铭牌上的型号，如 KFR-35GW" value="{{form.model}}" data-field="model" bindinput="onInput" />
+    <view class="model-wrap">
+      <view class="form-item">
+        <text class="form-label">型号</text>
+        <input class="form-input" placeholder="机身铭牌上的型号，如 KFR-35GW" value="{{form.model}}" data-field="model" bindinput="onInput" bindblur="onModelBlur" />
+      </view>
+
+      <!-- 官方备案候选浮层：输入防抖联想，点击回填品牌/品类/型号 -->
+      <view class="model-dropdown" wx:if="{{officialCandidates.length}}">
+        <view class="model-candidate" wx:for="{{officialCandidates}}" wx:key="productId"
+              data-index="{{index}}" bindtap="onPickCandidate" hover-class="model-candidate-hover">
+          <view class="mc-main">{{item.brand}} {{item.model}}</view>
+          <view class="mc-sub">{{item.level}}{{item.level ? '级 · ' : ''}}{{item.announcementTime}} 备案{{item.category ? ' · ' + item.category : ''}}</view>
+        </view>
+      </view>
+      <view class="model-search-hint" wx:elif="{{modelSearchHint}}">{{modelSearchHint}}</view>
     </view>
 
     <view class="form-item">

@@ -260,6 +260,73 @@ exports.main = async (event) => {
     }
   }
 
+  // 型号搜索自动补全：官方备案列表接口按型号模糊搜索（纯数字能效码场景的"输入型号→一键补全"升级）
+  // 合规边界同 resolveEnergyLabel：仅建档表单内随输入触发的回填辅助，不设独立"备案查询"入口，
+  // 候选只展示品牌/型号/品类/能效等级/备案时间，不展示详情页
+  if (action === 'searchOfficialModels') {
+    const keyword = String(event.keyword || '').trim().slice(0, 50)
+    if (keyword.length < 2) return { code: 0, list: [] } // 最短 2 字符，防全表拉取
+    const mark = Number(event.mark) || 854 // 854=能效，840=水效
+    const query = (m) => httpsPostJson(
+      'https://www.energylabel.com.cn/admin-api/gateway/productRegistration/productRegistrationList',
+      {
+        mark: m,
+        productType: '',
+        productModel: keyword, // 型号模糊搜索字段（官方接口实测支持，注意不是 model）
+        registrationNumber: '',
+        producerName: '',
+        current: 1,
+        pageSize: 10,
+        isOld: 1
+      }
+    )
+    let list = []
+    try {
+      const resp = await query(mark)
+      list = (resp && resp.code === 200 && resp.data && resp.data.list) || []
+      // 能效(854)无结果时回退水效(840)：洗衣机/净水器等品类走水效标识
+      if (!list.length && mark === 854) {
+        const r2 = await query(840)
+        list = (r2 && r2.code === 200 && r2.data && r2.data.list) || []
+      }
+    } catch (e) {
+      console.warn('searchOfficialModels fail', e.message)
+      return { code: 0, list: [] } // fail-open：接口失败静默返回空，前端退回纯手填
+    }
+    // 多版本备案按公告时间倒序（同型号可能 2015 版/2025 版并存，等级不同由用户选）
+    // announcementTime 官方格式不固定（字符串日期或毫秒时间戳），归一化为 YYYY-MM-DD 供前端展示
+    const normTime = (t) => {
+      const s = String(t || '')
+      if (/^\d{13}$/.test(s)) return new Date(Number(s)).toISOString().slice(0, 10)
+      if (/^\d{10}$/.test(s)) return new Date(Number(s) * 1000).toISOString().slice(0, 10)
+      return s.slice(0, 10)
+    }
+    list.sort((a, b) => String(b.announcementTime || '').localeCompare(String(a.announcementTime || '')))
+    const out = []
+    for (const it of list) {
+      if (!it || !it.productModel) continue
+      const brand = mapProducerToBrand(it.producerName)
+      const category = mapProductTypeToCategory(it.productType, it.productModel, '')
+      // 选中前的候选即落库缓存：后续 matchModel 本地命中，降低对官方接口依赖（失败吞错）
+      await cacheEnergyModel({
+        brand, category,
+        model: it.productModel,
+        level: String(it.nxLever || ''),
+        energyUid: 'EL' + it.id
+      })
+      out.push({
+        brand,
+        model: String(it.productModel).slice(0, 50),
+        category,
+        level: String(it.nxLever || ''),
+        productTypeCode: it.productTypeCode,
+        productId: it.id,
+        announcementTime: normTime(it.announcementTime)
+      })
+    }
+    return { code: 0, list: out }
+  }
+
   // 统一扫码入口：兼容 code（商品条码）与 qrContent（能效二维码），按内容自动路由
   const code = String(event.qrContent || event.code || '').trim()
   if (!code) return { code: 1, msg: '缺少条码参数' }

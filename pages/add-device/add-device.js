@@ -32,7 +32,11 @@ Page({
     scanned: null,
     recognizing: false,
     saving: false,
-    todayMax: format.today()  // Fixed P1-1: Store today as max date for picker
+    todayMax: format.today(),  // Fixed P1-1: Store today as max date for picker
+    // 型号搜索自动补全（官方备案列表接口模糊搜索，仅新建模式启用）
+    officialCandidates: [],   // 官方备案候选列表（最多展示 4 条）
+    modelSearchHint: '',      // 搜索不到时的一行灰字提示；空串表示不显示
+    modelSearching: false     // 联想请求进行中（输入框内小 loading 态）
   },
 
   /**
@@ -41,14 +45,20 @@ Page({
    */
   onLoad(options) {
     if (options.action === 'edit') {
-      this.setData({ 
+      this.setData({
         isEditMode: true,
-        editDeviceId: options.deviceId 
+        editDeviceId: options.deviceId
       })
       this.loadDeviceData() // 加载现有设备数据
     } else {
       this.initForm() // 初始化新设备表单
     }
+  },
+
+  /** 页面卸载：清理防抖/失焦定时器，避免离页后 setData */
+  onUnload() {
+    clearTimeout(this._modelSearchTimer)
+    clearTimeout(this._modelBlurTimer)
   },
 
   /** 初始化表单数据（新建模式） */
@@ -65,7 +75,10 @@ Page({
       },
       warrantyYears: 0,
       warrantyEnd: '',
-      scanned: null
+      scanned: null,
+      officialCandidates: [],
+      modelSearchHint: '',
+      modelSearching: false
     })
   },
 
@@ -235,6 +248,81 @@ Page({
     const field = e.currentTarget.dataset.field
     this.setData({ [`form.${field}`]: e.detail.value })
     if (field === 'brand') this.recalcWarranty()
+    if (field === 'model') this.onModelInput(e.detail.value)
+  },
+
+  /**
+   * 型号输入 → 官方备案模糊搜索联想（纯数字能效码场景升级：输入型号一键补全）
+   * 触发规则：≥2 字符、500ms 防抖；编辑模式禁用（编辑是修正场景，自动回填反而干扰）
+   */
+  onModelInput(value) {
+    clearTimeout(this._modelSearchTimer)
+    const kw = String(value || '').trim()
+    if (this.data.isEditMode || kw.length < 2) {
+      this.hideModelCandidates()
+      return
+    }
+    this._modelSearchTimer = setTimeout(() => this.searchOfficial(kw), 500)
+  },
+
+  /**
+   * 调云函数 searchOfficialModels 搜索官方备案候选
+   * 竞态守卫：seq 自增，慢返回的旧请求直接丢弃，避免 "HR-2" 的结果盖住 "HR-282" 的结果
+   * fail-open：任何失败静默收起浮层，不打扰手填路径
+   */
+  async searchOfficial(keyword) {
+    const seq = (this._modelSearchSeq = (this._modelSearchSeq || 0) + 1)
+    this.setData({ modelSearching: true, modelSearchHint: '' })
+    try {
+      const res = await cloud.call('getBarcodeInfo', {
+        action: 'searchOfficialModels',
+        keyword
+      })
+      if (seq !== this._modelSearchSeq) return // 已有更新的输入，丢弃本次结果
+      const list = (res && res.list) || []
+      if (!list.length) {
+        // 接口正常但确实搜不到：一行灰字提示，不弹窗不阻塞
+        this.setData({ officialCandidates: [], modelSearchHint: '未在官方备案中找到，可直接手动填写' })
+      } else {
+        this.setData({ officialCandidates: list.slice(0, 4), modelSearchHint: '' })
+      }
+    } catch (e) {
+      if (seq !== this._modelSearchSeq) return
+      this.setData({ officialCandidates: [], modelSearchHint: '' }) // 静默退回纯手填
+      console.warn('searchOfficial fail', e)
+    } finally {
+      if (seq === this._modelSearchSeq) this.setData({ modelSearching: false })
+    }
+  },
+
+  /** 选中候选：回填品牌/品类/型号，收起浮层，刷新保修预览 */
+  onPickCandidate(e) {
+    const idx = Number(e.currentTarget.dataset.index)
+    const c = this.data.officialCandidates[idx]
+    if (!c) return
+    const catIdx = CATEGORIES.indexOf(c.category)
+    this.setData({
+      'form.brand': c.brand,
+      'form.model': c.model,
+      'form.category': c.category,
+      categoryIndex: catIdx >= 0 ? catIdx : -1,
+      officialCandidates: [],
+      modelSearchHint: ''
+    })
+    this.recalcWarranty()
+    // 品类是 productType 映射推断的（可能失配），回填 ≠ 免确认，提示用户核对
+    wx.showToast({ title: '已回填，请核对品类', icon: 'none' })
+  },
+
+  /** 失焦延迟 200ms 收起：给候选的 tap 事件留出执行窗口（blur 先于 tap 是下拉联想最常见的坑） */
+  onModelBlur() {
+    clearTimeout(this._modelBlurTimer)
+    this._modelBlurTimer = setTimeout(() => this.hideModelCandidates(), 200)
+  },
+
+  hideModelCandidates() {
+    clearTimeout(this._modelSearchTimer)
+    this.setData({ officialCandidates: [], modelSearchHint: '' })
   },
 
   onCategory(e) {
