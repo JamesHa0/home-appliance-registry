@@ -222,7 +222,10 @@ Page({
           categoryIndex: idx >= 0 ? idx : -1
         })
         this.recalcWarranty()
-        wx.showToast({ title: '识别成功，请确认型号', icon: 'none' })
+        wx.showToast({
+          title: r.model ? '识别成功，请确认型号' : '已识别品牌和品类，请补全型号',
+          icon: 'none'
+        })
       } else {
         this.setData({ scanned: { raw: r.raw || res.result, found: false } })
         wx.showToast({ title: r.msg || '未识别，请手动补全', icon: 'none' })

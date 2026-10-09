@@ -9,7 +9,7 @@
     <button class="btn-primary scan-btn" bindtap="scan" loading="{{recognizing}}" disabled="{{recognizing || isEditMode}}">
       扫码识别
     </button>
-    <view class="scan-hint">扫机身「中国能效标识」二维码或包装条码，自动识别品牌与型号</view>
+    <view class="scan-hint">能效二维码可自动补全型号；包装条码用于识别品牌和品类，型号仍需核对</view>
 
     <view wx:if="{{scanned && scanned.found}}" class="scan-result">
       已识别：{{scanned.brand}} · {{scanned.name || scanned.model || '型号未知'}}

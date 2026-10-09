@@ -1,6 +1,6 @@
 Page({
   data: {
-    updateDate: '2026-09-02'
+    updateDate: '2026-10-08'
   },
 
   goBack() {
@@ -10,5 +10,9 @@ Page({
     } else {
       wx.switchTab({ url: '/pages/settings/settings' })
     }
+  },
+
+  onContactError() {
+    wx.showToast({ title: '微信客服暂不可用，请稍后重试', icon: 'none' })
   }
 })

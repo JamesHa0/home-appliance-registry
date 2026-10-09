@@ -64,7 +64,8 @@
 
   <view class="section">
     <view class="h">十、联系我们</view>
-    <view class="p">如对本政策有任何疑问、意见或建议，可通过小程序内功能反馈渠道与我们联系，我们将在 15 个工作日内回复。</view>
+    <view class="p">如对本政策有任何疑问、意见或建议，可通过下方微信客服与我们联系，我们将在 15 个工作日内回复。</view>
+    <button class="contact-btn" open-type="contact" binderror="onContactError">联系微信客服</button>
   </view>
 
   <button class="back-btn" bindtap="goBack">返回</button>

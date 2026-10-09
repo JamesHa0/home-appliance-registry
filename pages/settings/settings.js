@@ -21,6 +21,10 @@ Page({
     wx.navigateTo({ url: '/pages/privacy/privacy' })
   },
 
+  onContactError() {
+    wx.showToast({ title: '微信客服暂不可用，请稍后重试', icon: 'none' })
+  },
+
   async load() {
     this.setData({ loading: true })
     try {

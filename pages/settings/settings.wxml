@@ -36,6 +36,7 @@
   <view class="privacy-entry" bindtap="goPrivacy">
     查看《隐私政策》
   </view>
+  <button class="feedback-btn" open-type="contact" binderror="onContactError">意见反馈</button>
 </view>
 
 <privacy-popup />

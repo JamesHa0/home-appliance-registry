@@ -6,7 +6,7 @@
 
 ## 功能特性
 
-- **扫码建档** — 扫商品条码或能效标识码自动识别品牌/型号/品类;型号输入框带联想补全(输入型号 → 候选 → 一键回填),未命中时手动录入
+- **扫码建档** — 能效标识二维码自动识别品牌/型号/品类;商品条码用于识别品牌和品类,型号仍需用户确认;型号输入框带官方备案联想补全,未命中时手动录入
 - **保修管理** — 按品牌 × 品类保修年限规则自动计算,首页倒计时提醒,到期下发一次性订阅推送
 - **家庭共享** — 创建/加入家庭,邀请码机制,家庭成员共享设备数据(服务端 OPENID 校验,防越权)
 - **政策与召回** — 国补/以旧换新政策聚合,召回公告按型号匹配并在设备详情标红
@@ -39,7 +39,8 @@ home-appliance-registry/
 ├── utils/
 │   ├── warranty.js                   保修规则表(品牌 × 品类 → 年限)
 │   ├── format.js                     日期 / 倒计时
-│   └── cloud.js                      云函数调用封装
+│   ├── cloud.js                      云函数调用封装
+│   └── recall.js                     召回型号规范化(前端与云函数行为对齐)
 ├── db/
 │   ├── seed-models.json              型号库种子数据 → 导入 models
 │   ├── seed-policies.json            政策种子数据 → 导入 policies
@@ -47,7 +48,7 @@ home-appliance-registry/
 └── cloudfunctions/
     ├── familyService/                家庭 + 设备 CRUD 统一入口(成员关系校验,家庭共享核心)
     ├── getBarcodeInfo/               条码反查 + 能效码解析 + 型号联想(searchOfficialModels)
-    ├── scanRecall/                   召回公告定时抓取(每日 02:00)
+    ├── scanRecall/                   召回公告定时抓取与详情解析(每日 02:00)
     └── sendWarrantyReminder/         保修到期定时提醒(每日 09:00,一次性订阅下发)
 ```
 
@@ -58,7 +59,16 @@ home-appliance-registry/
 3. 复制 `config.local.js.sample` 为 `config.local.js`,填入云开发环境 ID(该文件已被 `.gitignore` 忽略,不会进入公开仓库)
 4. 部署云函数:在 `cloudfunctions/` 下每个函数文件夹右键 → **上传并部署:云端安装依赖**
 5. 初始化云数据库:创建下方 **8 个集合**并按下表配置权限,导入种子数据(`db/` 目录,`seed-*.json`)
-6. 上传代码并提交审核
+6. 将 `scanRecall` 云函数超时设置为至少 30 秒,先手动运行一次,确认能写入真实召回数据后再启用定时触发器
+7. 在微信公众平台开启微信客服,供设置页和隐私政策页的“意见反馈”入口使用
+8. 上传代码并提交审核
+
+本地验证:
+
+```bash
+npm ci
+npm test
+```
 
 ## 配置项
 
@@ -78,7 +88,7 @@ home-appliance-registry/
 |------|------|------|
 | `familyService` | — | 家庭与设备 CRUD 统一入口,所有读写经此函数并基于 OPENID 校验成员关系 |
 | `getBarcodeInfo` | — | 条码反查:本地型号库 → 条码 API → 模糊匹配;能效码(官方备案接口/bbqk)自动取数并缓存(`source=energylabel`),接口失败降级手填;`searchOfficialModels` 按型号模糊搜索备案列表供建档页型号联想补全(默认 `mark=854` 能效,取回后前端只展示 4 条) |
-| `scanRecall` | 每日 02:00 | 召回公告定时抓取,失败写入 `system_errors` |
+| `scanRecall` | 每日 02:00 | 解析官方召回列表和详情页,按型号写入召回记录;非家电和不含型号的条目记录日志 |
 | `sendWarrantyReminder` | 每日 09:00 | 扫描 7 天内到期设备,下发一次性订阅消息 |
 
 > 前端统一经 `utils/cloud.js` 的 `call('familyService', {...})` 调用,返回值 `{ code, data | msg }`;`code !== 0` 时 reject。公开只读集合(`models` / `policies` / `recalls`)由前端直读,省去云函数往返。
@@ -98,15 +108,19 @@ home-appliance-registry/
 
 > ⚠️ `models` / `policies` / `recalls` 必须设为「所有用户可读、**仅管理端可写**」。若误设为「所有用户可读写」,任何人可灌入虚假召回或国补信息(诈骗风险)。
 
+> 建议为 `devices.familyId + archived + createdAt`、`families.members`、`families.inviteCode`、`subscriptions.deviceId + used + invalid`、`recalls.modelNormalized`、`recalls.sourceKey` 和 `recalls.publishedAt` 建立索引,避免数据增长后查询变慢。
+
 ## 隐私
 
 - 仅在用户授权后调用相关能力:扫码(摄像头)、家庭昵称头像、复制说明书链接(剪贴板);授权弹窗覆盖全部相关页面,拒绝授权不影响手动录入等主流程
 - 设备档案与家庭成员关系仅家庭成员可见,由服务端按 OPENID 校验
+- 用户可在家庭页清除头像,服务端会同步删除旧云存储文件;意见反馈通过微信客服入口
 - 完整隐私政策见小程序内「提醒 → 隐私政策」页(`pages/privacy`)
 
 ## 已知限制
 
 - 个人主体小程序仅支持**一次性订阅消息**:保修到期可推送,政策/召回以站内页提醒
 - 保修规则为前端硬编码(`utils/warranty.js`),暂不支持云端动态配置
-- 型号联想补全依赖能效标识网公开列表接口(无鉴权、无 SLA):接口失败或无命中时静默退回纯手填,不影响建档;该接口返回的候选仅用于表单回填,应用不提供独立查询入口
+- 商品条码在线反查可能只返回品牌/品类/商品名,不保证包含型号;型号联想补全依赖能效标识网公开列表接口(无鉴权、无 SLA),接口失败或无命中时静默退回纯手填
 - 条码在线反查依赖 `BARCODE_API_KEY`,未配置时仅走本地型号库
+- 召回数据依赖公开网页结构;页面改版时由 `system_errors` 记录解析失败,不会删除既有召回记录
