@@ -26,6 +26,10 @@
       <view class="recall-title">{{item.title}}</view>
       <view wx:if="{{item.model}}" class="recall-model">型号：{{item.model}}</view>
       <view class="recall-source">来源：市场监管总局缺陷产品召回技术中心</view>
+      <view wx:if="{{item.publishedAt}}" class="recall-source">发布时间：{{item.publishedAt}}</view>
+      <view wx:if="{{item.link}}" class="policy-link" bindtap="copyLink" data-link="{{item.link}}">
+        复制官方详情链接 →
+      </view>
     </view>
   </block>
 

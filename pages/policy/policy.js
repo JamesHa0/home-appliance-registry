@@ -17,13 +17,20 @@ Page({
       const db = wx.cloud.database()
       const today = format.today()
       const policyRes = await db.collection('policies').orderBy('createdAt', 'desc').limit(20).get()
-      const recallRes = await db.collection('recalls').orderBy('createdAt', 'desc').limit(20).get()
 
       const policies = policyRes.data.map(p => Object.assign({}, p, {
         active: !p.endDate || p.endDate >= today
       }))
 
-      this.setData({ policies, recalls: recallRes.data, loading: false })
+      let recalls = []
+      try {
+        const recallRes = await db.collection('recalls').orderBy('publishedAt', 'desc').limit(20).get()
+        recalls = recallRes.data
+      } catch (recallError) {
+        console.warn('recall list load failed', recallError)
+      }
+
+      this.setData({ policies, recalls, loading: false })
     } catch (e) {
       console.warn(e)
       this.setData({ loading: false })

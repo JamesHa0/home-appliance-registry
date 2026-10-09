@@ -8,10 +8,6 @@ config.local.js
 dist/
 coverage/
 .jest/
-**/tests/
-**/*.test.js
-**/*.spec.js
-**/e2e/
 .qoder/
 miniprogram_npm/
 .workbuddy/
