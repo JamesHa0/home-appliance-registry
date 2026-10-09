@@ -86,6 +86,7 @@
         <image wx:if="{{editAvatarUrl}}" class="avatar-preview" src="{{editAvatarUrl}}" mode="aspectFill" />
         <view wx:else class="avatar-preview avatar-preview-empty">选择头像</view>
       </button>
+      <text wx:if="{{editAvatarUrl}}" class="avatar-clear" bindtap="clearAvatar">清除头像</text>
       <input
         class="nickname-input"
         type="nickname"

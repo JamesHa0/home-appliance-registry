@@ -19,6 +19,14 @@ Page({
     savingProfile: false
   },
 
+  onLoad(options) {
+    const raw = options && options.inviteCode
+    const code = String(raw || '').trim().toUpperCase()
+    if (!/^[A-HJ-NP-Z0-9]{6}$/.test(code)) return
+    this._pendingInviteCode = code
+    this.setData({ inviteCodeInput: code })
+  },
+
   onShow() {
     this.load()
   },
@@ -32,7 +40,18 @@ Page({
       // 必须以存在家庭 _id 作为"有家庭"的判定，否则无家庭用户会渲染空家庭页。
       if (!f || !f._id) {
         this.setData({ family: null, members: [], membersDetail: [] })
+        this.promptPendingInvite()
         return
+      }
+      if (this._pendingInviteCode) {
+        const pendingCode = this._pendingInviteCode
+        this._pendingInviteCode = ''
+        wx.showToast({
+          title: pendingCode === f.inviteCode
+            ? '你已经在该家庭中'
+            : '你已加入一个家庭，请先退出后再加入',
+          icon: 'none'
+        })
       }
       const myOpenid = f.openid || getApp().globalData.openid || ''
       const detail = f.membersDetail || []
@@ -91,7 +110,25 @@ Page({
   },
 
   async joinFamily() {
-    const code = this.data.inviteCodeInput.trim().toUpperCase()
+    return this.joinCode(this.data.inviteCodeInput)
+  },
+
+  promptPendingInvite() {
+    const code = this._pendingInviteCode
+    if (!code) return
+    this._pendingInviteCode = ''
+    wx.showModal({
+      title: '加入家庭',
+      content: `是否使用邀请码 ${code} 加入家庭？`,
+      confirmText: '加入',
+      success: (res) => {
+        if (res.confirm) this.joinCode(code)
+      }
+    })
+  },
+
+  async joinCode(input) {
+    const code = String(input || '').trim().toUpperCase()
     
     // Validate format before sending to server
     const invitePattern = /^[A-HJ-NP-Za-km-z0-9]{6}$/
@@ -156,6 +193,14 @@ Page({
     this.setData({ editAvatarTemp: temp, editAvatarUrl: temp })
   },
 
+  clearAvatar() {
+    this.setData({
+      editAvatarTemp: '',
+      editAvatarFileId: '',
+      editAvatarUrl: ''
+    })
+  },
+
   onNicknameInput(e) {
     this.setData({ editNickname: e.detail.value })
   },
@@ -213,9 +258,14 @@ Page({
 
   onShareAppMessage() {
     const f = this.data.family
+    const inviteCode = f && f.inviteCode ? String(f.inviteCode).toUpperCase() : ''
     return {
-      title: '加入我的家庭，一起管理家电保修',
-      path: '/pages/family/family'
+      title: inviteCode
+        ? `加入我的家庭，邀请码 ${inviteCode}`
+        : '加入我的家庭，一起管理家电保修',
+      path: inviteCode
+        ? `/pages/family/family?inviteCode=${encodeURIComponent(inviteCode)}`
+        : '/pages/family/family'
     }
   },
   
