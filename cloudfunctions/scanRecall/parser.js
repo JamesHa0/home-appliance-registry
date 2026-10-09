@@ -4,7 +4,14 @@ const HOME_APPLIANCE_KEYWORDS = [
   '空调', '冰箱', '冰柜', '洗衣机', '电视', '热水器', '燃气灶', '油烟机',
   '电饭煲', '电压力锅', '电蒸锅', '熨烫机', '剃须刀', '吹风机', '热水壶',
   '电风扇', '取暖器', '净水器', '洗碗机', '微波炉', '烤箱', '电磁炉',
-  '吸尘器', '空气净化器', '加湿器', '家电'
+  '吸尘器', '空气净化器', '加湿器', '挂烫机', '除湿机', '空气炸锅', '家电'
+]
+
+const EXCLUDED_PRODUCT_PATTERNS = [
+  /冰箱贴|冰箱贴纸|冰箱除味|冰箱清洁剂|冰箱收纳/,
+  /电视柜|电视架|电视背景墙|电视盒|电视支架/,
+  /空调被|空调毯|空调罩|空调清洁剂/,
+  /(?:冰箱|电视|空调|电风扇|挂烫机|除湿机|空气炸锅)(?:造型|模型|玩具)/
 ]
 
 const CATEGORY_KEYWORDS = [
@@ -73,7 +80,9 @@ function parseRecallList(html, baseUrl = DEFAULT_LIST_URL) {
 }
 
 function isHomeApplianceRecall(text) {
-  const value = String(text || '')
+  const value = String(text || '').replace(/\s+/g, '')
+  if (!value) return false
+  if (EXCLUDED_PRODUCT_PATTERNS.some(pattern => pattern.test(value))) return false
   return HOME_APPLIANCE_KEYWORDS.some(keyword => value.includes(keyword))
 }
 
@@ -183,14 +192,29 @@ function buildRecallDocuments(listItem, detail) {
   return docs
 }
 
+function buildRecallBackfillPatch(recall) {
+  const model = String((recall && recall.model) || '').trim()
+  const normalized = normalizeModel(model)
+  const patch = {}
+  if (model && (recall.modelNormalized || '') !== normalized) {
+    patch.modelNormalized = normalized
+  }
+  if (!recall.sourceKey && recall.link && normalized) {
+    patch.sourceKey = `${recall.link}#${normalized}`
+  }
+  return patch
+}
+
 module.exports = {
   DEFAULT_LIST_URL,
   HOME_APPLIANCE_KEYWORDS,
+  EXCLUDED_PRODUCT_PATTERNS,
   normalizeModel,
   stripHtml,
   parseRecallList,
   parseRecallDetail,
   buildRecallDocuments,
+  buildRecallBackfillPatch,
   isHomeApplianceRecall,
   inferCategory,
   extractBrand,

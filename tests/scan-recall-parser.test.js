@@ -2,6 +2,7 @@ const {
   parseRecallList,
   parseRecallDetail,
   buildRecallDocuments,
+  buildRecallBackfillPatch,
   isHomeApplianceRecall
 } = require('../cloudfunctions/scanRecall/parser')
 
@@ -67,6 +68,18 @@ describe('scanRecall parser', () => {
     expect(isHomeApplianceRecall('【河南】某公司召回部分品牌吸附式熨烫机')).toBe(true)
   })
 
+  test.each([
+    ['冰箱贴', false],
+    ['电视柜', false],
+    ['空调被', false],
+    ['电风扇造型玩具', false],
+    ['挂烫机', true],
+    ['除湿机', true],
+    ['空气炸锅', true]
+  ])('classifies %s as appliance=%s', (text, expected) => {
+    expect(isHomeApplianceRecall(text)).toBe(expected)
+  })
+
   test('expands multiple models into independent records', () => {
     const detail = parseRecallDetail(
       `${DETAIL_HTML.replace('LDY-YT-07', 'ABC-1、ABC-2')}`,
@@ -89,5 +102,20 @@ describe('scanRecall parser', () => {
       <div>型号/规格 LR-SS117 生产起止日期 2024年12月1日至2024年12月30日</div>
     `)
     expect(detail.models).toEqual([{ model: 'LR-SS117', normalized: 'LRSS117' }])
+  })
+
+  test('builds an idempotent legacy recall backfill patch', () => {
+    expect(buildRecallBackfillPatch({
+      model: 'm 1',
+      link: 'https://example.com/recall'
+    })).toEqual({
+      modelNormalized: 'M1',
+      sourceKey: 'https://example.com/recall#M1'
+    })
+    expect(buildRecallBackfillPatch({
+      model: 'M-1',
+      modelNormalized: 'M1',
+      sourceKey: 'https://example.com/recall#M1'
+    })).toEqual({})
   })
 })

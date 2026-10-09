@@ -154,6 +154,7 @@ async function getRecallMap(models) {
   }
 
   const legacyModels = modelList.filter(model => !normalizedFound.has(normalizeModel(model)))
+  const legacyNeeded = new Set(legacyModels.map(normalizeModel).filter(Boolean))
   for (const group of chunk(legacyModels, 10)) {
     const res = await db.collection('recalls')
       .where({ model: _.in(group) })
@@ -163,8 +164,29 @@ async function getRecallMap(models) {
     ;(res.data || []).forEach(recall => {
       const key = normalizeModel(recall.model)
       if (!key) return
+      legacyNeeded.delete(key)
       recallMap[key] = newerRecall(recallMap[key], recall)
     })
+  }
+
+  // Legacy records may not have modelNormalized yet. Compare in memory so a
+  // one-time backfill is not required for immediate correctness.
+  if (legacyNeeded.size) {
+    const pageSize = 100
+    for (let offset = 0; offset < 2000; offset += pageSize) {
+      const legacyRes = await db.collection('recalls')
+        .skip(offset)
+        .limit(pageSize)
+        .get()
+        .catch(() => ({ data: [] }))
+      const page = legacyRes.data || []
+      page.forEach(recall => {
+        const key = normalizeModel(recall.model)
+        if (!key || !legacyNeeded.has(key)) return
+        recallMap[key] = newerRecall(recallMap[key], recall)
+      })
+      if (page.length < pageSize) break
+    }
   }
 
   return recallMap

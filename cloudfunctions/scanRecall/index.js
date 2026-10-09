@@ -5,6 +5,7 @@ const {
   parseRecallList,
   parseRecallDetail,
   buildRecallDocuments,
+  buildRecallBackfillPatch,
   isHomeApplianceRecall
 } = require('./parser')
 
@@ -61,6 +62,39 @@ async function isDuplicate(doc) {
   return byLegacy.total > 0
 }
 
+async function backfillMissingRecallModels() {
+  const pageSize = 100
+  let scanned = 0
+  let updated = 0
+
+  for (let offset = 0; offset < 2000; offset += pageSize) {
+    const res = await db.collection('recalls')
+      .skip(offset)
+      .limit(pageSize)
+      .get()
+      .catch(() => ({ data: [] }))
+    const page = res.data || []
+    scanned += page.length
+
+    for (const recall of page) {
+      const patch = buildRecallBackfillPatch(recall)
+      if (!Object.keys(patch).length) continue
+      try {
+        await db.collection('recalls').doc(recall._id).update({ data: patch })
+        updated++
+      } catch (e) {
+        await recordError(`Recall backfill failed: ${e.message}`, {
+          recallId: recall._id,
+          model: recall.model || ''
+        })
+      }
+    }
+    if (page.length < pageSize) break
+  }
+
+  return { scanned, updated }
+}
+
 async function scrapePage(url) {
   const html = await httpsGet(url)
   return parseRecallList(html, url)
@@ -95,6 +129,7 @@ exports.main = async (event) => {
       }
     }
 
+    const backfill = await backfillMissingRecallModels()
     let detailFetched = 0
     let applianceMatched = 0
     let modelParsed = 0
@@ -107,9 +142,10 @@ exports.main = async (event) => {
         const detailHtml = await httpsGet(listItem.detailUrl)
         detailFetched++
         const detail = parseRecallDetail(detailHtml, listItem.detailUrl, listItem.title)
-        const searchableText = `${listItem.title} ${detail.detailText}`
 
-        if (!isHomeApplianceRecall(searchableText)) {
+        // Product classification should use the official title. Scanning the full
+        // detail body caused accessories and standards text to trigger false positives.
+        if (!isHomeApplianceRecall(listItem.title)) {
           skipped++
           continue
         }
@@ -153,6 +189,8 @@ exports.main = async (event) => {
       modelParsed,
       inserted,
       skipped,
+      backfilled: backfill.updated,
+      legacyScanned: backfill.scanned,
       failed: failures.length,
       failures: failures.slice(0, 10)
     }
