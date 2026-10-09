@@ -3,7 +3,8 @@ const {
   parseRecallDetail,
   buildRecallDocuments,
   buildRecallBackfillPatch,
-  isHomeApplianceRecall
+  isHomeApplianceRecall,
+  extractModels
 } = require('../cloudfunctions/scanRecall/parser')
 
 const LIST_HTML = `
@@ -69,13 +70,15 @@ describe('scanRecall parser', () => {
   })
 
   test.each([
-    ['冰箱贴', false],
-    ['电视柜', false],
-    ['空调被', false],
-    ['电风扇造型玩具', false],
-    ['挂烫机', true],
-    ['除湿机', true],
-    ['空气炸锅', true]
+    ['【广东】某公司召回部分品牌冰箱贴', false],
+    ['【广东】某公司召回部分品牌电视柜', false],
+    ['【广东】某公司召回部分品牌电视机柜', false],
+    ['【广东】某公司召回部分品牌空调被', false],
+    ['【广东】某公司召回部分品牌电风扇造型玩具', false],
+    ['【广东】某公司召回部分品牌玩具电风扇', false],
+    ['【浙江】某公司召回部分品牌挂烫机', true],
+    ['【浙江】某公司召回部分品牌除湿机', true],
+    ['【浙江】某公司召回部分品牌空气炸锅', true]
   ])('classifies %s as appliance=%s', (text, expected) => {
     expect(isHomeApplianceRecall(text)).toBe(expected)
   })
@@ -117,5 +120,13 @@ describe('scanRecall parser', () => {
       modelNormalized: 'M1',
       sourceKey: 'https://example.com/recall#M1'
     })).toEqual({})
+    expect(buildRecallBackfillPatch(null)).toEqual({})
+    expect(buildRecallBackfillPatch(undefined)).toEqual({})
+    expect(buildRecallBackfillPatch({})).toEqual({})
+  })
+
+  test('rejects malformed HTML fragments as model values', () => {
+    expect(extractModels('<div>型号/规格：22-24cm..."></div>')).toEqual([])
+    expect(extractModels('<div>型号/规格：5kg/..."></div>')).toEqual([])
   })
 })

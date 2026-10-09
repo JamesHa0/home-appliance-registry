@@ -9,9 +9,10 @@ const HOME_APPLIANCE_KEYWORDS = [
 
 const EXCLUDED_PRODUCT_PATTERNS = [
   /冰箱贴|冰箱贴纸|冰箱除味|冰箱清洁剂|冰箱收纳/,
-  /电视柜|电视架|电视背景墙|电视盒|电视支架/,
+  /电视(?:机)?柜|电视(?:机)?架|电视(?:机)?背景墙|电视(?:机)?盒|电视(?:机)?支架/,
   /空调被|空调毯|空调罩|空调清洁剂/,
-  /(?:冰箱|电视|空调|电风扇|挂烫机|除湿机|空气炸锅)(?:造型|模型|玩具)/
+  /(?:冰箱|电视(?:机)?|空调|电风扇|挂烫机|除湿机|空气炸锅)(?:造型|模型|玩具)/,
+  /(?:造型|模型|玩具)(?:款|型|版)?(?:冰箱|电视(?:机)?|空调|电风扇|挂烫机|除湿机|空气炸锅)/
 ]
 
 const CATEGORY_KEYWORDS = [
@@ -41,10 +42,13 @@ function decodeEntities(text) {
 function stripHtml(html) {
   return decodeEntities(
     String(html || '')
+      .replace(/<!--[\s\S]*?-->/g, ' ')
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<[^>]+>/g, ' ')
   )
+    .replace(/[<>]+/g, ' ')
+    .replace(/["'“”‘’]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -119,6 +123,10 @@ function normalizeModel(value) {
 function isLikelyModel(value) {
   const raw = String(value || '').trim()
   if (raw.length < 2 || raw.length > 60) return false
+  if (/[<>"']/.test(raw) || /\.{2,}/.test(raw)) return false
+  if (/^\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?(?:cm|mm|kg|g|ml|l|kw|w|v|a|hz)$/i.test(raw)) {
+    return false
+  }
   if (/[年月日件台个只数量涉及生产制造期间]/.test(raw)) return false
   if (!/[A-Za-z0-9]/.test(raw)) return false
   if (/^GB\d/i.test(raw)) return false
@@ -193,14 +201,15 @@ function buildRecallDocuments(listItem, detail) {
 }
 
 function buildRecallBackfillPatch(recall) {
-  const model = String((recall && recall.model) || '').trim()
+  const source = recall || {}
+  const model = String(source.model || '').trim()
   const normalized = normalizeModel(model)
   const patch = {}
-  if (model && (recall.modelNormalized || '') !== normalized) {
+  if (model && (source.modelNormalized || '') !== normalized) {
     patch.modelNormalized = normalized
   }
-  if (!recall.sourceKey && recall.link && normalized) {
-    patch.sourceKey = `${recall.link}#${normalized}`
+  if (!source.sourceKey && source.link && normalized) {
+    patch.sourceKey = `${source.link}#${normalized}`
   }
   return patch
 }
