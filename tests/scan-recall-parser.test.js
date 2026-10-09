@@ -4,7 +4,8 @@ const {
   buildRecallDocuments,
   buildRecallBackfillPatch,
   isHomeApplianceRecall,
-  extractModels
+  extractModels,
+  HOME_APPLIANCE_KEYWORDS
 } = require('../cloudfunctions/scanRecall/parser')
 
 const LIST_HTML = `
@@ -83,6 +84,15 @@ describe('scanRecall parser', () => {
     expect(isHomeApplianceRecall(text)).toBe(expected)
   })
 
+  const derivedToyTerms = HOME_APPLIANCE_KEYWORDS.filter(keyword => keyword !== '家电')
+  const derivedToyCases = derivedToyTerms.flatMap(keyword => [
+    [`【测试】某公司召回部分品牌${keyword}造型玩具`, false],
+    [`【测试】某公司召回部分品牌玩具${keyword}`, false]
+  ])
+  test.each(derivedToyCases)('derived exclusion handles %s', (text, expected) => {
+    expect(isHomeApplianceRecall(text)).toBe(expected)
+  })
+
   test('expands multiple models into independent records', () => {
     const detail = parseRecallDetail(
       `${DETAIL_HTML.replace('LDY-YT-07', 'ABC-1、ABC-2')}`,
@@ -128,5 +138,45 @@ describe('scanRecall parser', () => {
   test('rejects malformed HTML fragments as model values', () => {
     expect(extractModels('<div>型号/规格：22-24cm..."></div>')).toEqual([])
     expect(extractModels('<div>型号/规格：5kg/..."></div>')).toEqual([])
+    expect(extractModels('<div>型号/规格：5kg/桶</div>')).toEqual([])
+    expect(extractModels('<div>型号/规格：ZTNW40（cm</div>')).toEqual([])
+  })
+
+  test.each([
+    ['5kg'],
+    ['60L'],
+    ['220V'],
+    ['300W'],
+    ['1.5kg']
+  ])('rejects unit-like value %s', value => {
+    expect(extractModels(`<div>型号/规格：${value}</div>`)).toEqual([])
+  })
+
+  test.each([
+    'KFR-35GW/N8KS1-1',
+    'KFR-72LW/N1A1',
+    'MD100V70DG',
+    'XQG100MJ106',
+    'BCD-516WFGPZM',
+    'BCD-501WGPM',
+    'ES60H-C6',
+    'F60-21BA6',
+    '65R5',
+    'EA55',
+    'L70M5-4A',
+    'CXW-260-JCD7',
+    'JZT-968BX',
+    'MB-FB40Simple111',
+    'LDY-YT-07',
+    'LR-SS117',
+    '5G-M1',
+    '300WX',
+    'AB.12',
+    'RX-16L8',
+    'M-1'
+  ])('preserves valid model %s', model => {
+    expect(extractModels(`<div>型号/规格：${model}</div>`)).toEqual([
+      expect.objectContaining({ model })
+    ])
   })
 })

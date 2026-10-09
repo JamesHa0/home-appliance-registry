@@ -7,12 +7,27 @@ const HOME_APPLIANCE_KEYWORDS = [
   '吸尘器', '空气净化器', '加湿器', '挂烫机', '除湿机', '空气炸锅', '家电'
 ]
 
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function applianceRegexFragment(keyword) {
+  if (keyword === '电视') return '电视(?:机)?'
+  return escapeRegex(keyword)
+}
+
+const TOY_EXCLUDED_APPLIANCE_ALTERNATION = HOME_APPLIANCE_KEYWORDS
+  .filter(keyword => keyword !== '家电')
+  .sort((a, b) => b.length - a.length)
+  .map(applianceRegexFragment)
+  .join('|')
+
 const EXCLUDED_PRODUCT_PATTERNS = [
   /冰箱贴|冰箱贴纸|冰箱除味|冰箱清洁剂|冰箱收纳/,
   /电视(?:机)?柜|电视(?:机)?架|电视(?:机)?背景墙|电视(?:机)?盒|电视(?:机)?支架/,
   /空调被|空调毯|空调罩|空调清洁剂/,
-  /(?:冰箱|电视(?:机)?|空调|电风扇|挂烫机|除湿机|空气炸锅)(?:造型|模型|玩具)/,
-  /(?:造型|模型|玩具)(?:款|型|版)?(?:冰箱|电视(?:机)?|空调|电风扇|挂烫机|除湿机|空气炸锅)/
+  new RegExp(`(?:${TOY_EXCLUDED_APPLIANCE_ALTERNATION})(?:造型|模型|玩具)`),
+  new RegExp(`(?:造型|模型|玩具)(?:款|型|版)?(?:${TOY_EXCLUDED_APPLIANCE_ALTERNATION})`)
 ]
 
 const CATEGORY_KEYWORDS = [
@@ -124,7 +139,14 @@ function isLikelyModel(value) {
   const raw = String(value || '').trim()
   if (raw.length < 2 || raw.length > 60) return false
   if (/[<>"']/.test(raw) || /\.{2,}/.test(raw)) return false
-  if (/^\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?(?:cm|mm|kg|g|ml|l|kw|w|v|a|hz)$/i.test(raw)) {
+  const unbalancedBracket = [
+    ['(', ')'],
+    ['（', '）'],
+    ['[', ']'],
+    ['【', '】']
+  ].some(([open, close]) => raw.split(open).length !== raw.split(close).length)
+  if (unbalancedBracket) return false
+  if (/^\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?(?:cm|mm|kg|ml|kw|hz|g|l|L|V|W|A)(?![A-Za-z])/.test(raw)) {
     return false
   }
   if (/[年月日件台个只数量涉及生产制造期间]/.test(raw)) return false
