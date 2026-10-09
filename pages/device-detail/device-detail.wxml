@@ -3,8 +3,9 @@
     <!-- 召回警告 -->
     <view wx:if="{{recalled}}" class="recall-banner">
       <view class="recall-title">官方召回提醒</view>
-      <view class="recall-text">该型号（{{device.model}}）在市场监管总局缺陷产品召回范围内，请尽快查看召回公告并按指引处理。</view>
-      <view class="recall-link">官方公告：samrdprc.org.cn（搜索品牌+型号）</view>
+      <view class="recall-text">{{recall.title || '该型号在市场监管总局缺陷产品召回范围内，请尽快查看召回公告。'}}</view>
+      <view wx:if="{{recall.publishedAt}}" class="recall-source">发布时间：{{recall.publishedAt}}</view>
+      <view class="recall-link" bindtap="copyRecallLink">复制官方详情链接 →</view>
     </view>
 
     <!-- 设备信息 -->

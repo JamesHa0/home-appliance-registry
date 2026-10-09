@@ -24,6 +24,12 @@
   margin-top: 12rpx;
 }
 
+.recall-source {
+  color: #791F1F;
+  font-size: 24rpx;
+  margin-top: 8rpx;
+}
+
 .device-head {
   display: flex;
   align-items: center;

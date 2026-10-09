@@ -4,21 +4,21 @@ const cloud = require('../../utils/cloud')
 // 品牌售后入口（官方客服电话与官网服务页，来自品牌公开服务信息；可扩展为云数据库表）
 // 电话仅收录可确认的官方号码，不确定的只给 link，前端兜底提示拨打 114
 const AFTER_SALES = {
-  '美的': { phone: '4008899315', link: 'https://www.midea.com/support' },
+  '美的': { phone: '4008899315', link: 'https://www.midea.com/cn/service' },
   '海尔': { phone: '4006999999', link: 'https://www.haier.com/support/' },
   '统帅': { phone: '4006999999', link: 'https://www.haier.com/support/' },
   '小米': { phone: '4001005678', link: 'https://www.mi.com/service/' },
   '米家': { phone: '4001005678', link: 'https://www.mi.com/service/' },
-  '格力': { phone: '4008365315', link: 'https://www.gree.com.cn/service/' },
+  '格力': { phone: '4008365315' },
   '海信': { phone: '4006111111', link: 'https://www.hisense.com/service' },
-  '奥克斯': { link: 'https://www.aux.com.cn/' },
+  '奥克斯': {},
   'TCL': { link: 'https://www.tcl.com/cn/zh' },
   '创维': { link: 'https://www.skyworth.com/' },
   '长虹': { link: 'https://www.changhong.com/' },
   '康佳': { link: 'https://www.konka.com/' },
-  '松下': { link: 'https://www.panasonic.cn/' },
+  '松下': {},
   '博世': { link: 'https://www.bosch-home.cn/' },
-  '西门子': { link: 'https://www.siemens-home.cn/' },
+  '西门子': {},
   '方太': { link: 'https://www.fotile.com/' },
   '老板': { link: 'https://www.robam.com/' },
   '华帝': { link: 'https://www.vatti.com.cn/' },
@@ -33,6 +33,7 @@ Page({
     device: null,
     ws: null,
     recalled: false,
+    recall: {},
     afterSale: null,
     loading: true
   },
@@ -53,18 +54,12 @@ Page({
       const res = await cloud.call('familyService', { action: 'getDevice', id: this.data.id })
       const d = res.data
       const ws = format.warrantyStatus(d.warrantyEnd)
-
-      // 召回匹配（recalls 为公开只读集合）
-      let recalled = false
-      try {
-        const recallRes = await wx.cloud.database().collection('recalls')
-          .where({ model: d.model }).limit(5).get()
-        recalled = recallRes.data.length > 0
-      } catch (e) { /* 忽略 */ }
+      const recalled = !!d.recalled
+      const recall = d.recall || {}
 
       const afterSale = AFTER_SALES[d.brand] || null
 
-      this.setData({ device: d, ws, recalled, afterSale, loading: false })
+      this.setData({ device: d, ws, recalled, recall, afterSale, loading: false })
     } catch (e) {
       this.setData({ loading: false })
       wx.showToast({ title: e.message || '设备不存在', icon: 'none' })
@@ -108,6 +103,23 @@ Page({
       console.error('[device-detail] openManual error:', e)
       wx.showToast({ title: '操作异常：' + (e.message || '未知错误'), icon: 'none', duration: 3000 })
     }
+  },
+
+  copyRecallLink() {
+    const link = (this.data.recall && this.data.recall.link)
+      || 'https://www.samrdprc.org.cn/xfpzh/xfpgnzh/'
+    wx.setClipboardData({
+      data: link,
+      success: () => {
+        wx.showModal({
+          title: '召回公告链接已复制',
+          content: link,
+          showCancel: false,
+          confirmText: '知道了'
+        })
+      },
+      fail: () => wx.showToast({ title: '复制失败，请稍后重试', icon: 'none' })
+    })
   },
 
   /** 跳转到编辑页面 */

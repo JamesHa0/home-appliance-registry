@@ -23,19 +23,7 @@ Page({
       const archivedCount = res.data.archivedCount || 0
       const devices = (res.data.devices || []).map(d => {
         const ws = format.warrantyStatus(d.warrantyEnd)
-        return Object.assign({}, d, { ws, recalled: false })
-      })
-
-      // 召回匹配（recalls 为公开只读集合，可直接查询）
-      let recalls = []
-      try {
-        const r = await wx.cloud.database().collection('recalls').limit(20).get()
-        recalls = r.data
-      } catch (e) { /* 忽略 */ }
-      devices.forEach(d => {
-        if (d.model) {
-          d.recalled = recalls.some(x => x.model && x.model === d.model)
-        }
+        return Object.assign({}, d, { ws })
       })
 
       // 国补待办（policies 为公开只读集合）

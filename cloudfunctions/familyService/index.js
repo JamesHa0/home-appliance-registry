@@ -8,6 +8,7 @@ const _ = db.command
 
 // Import addYears utility for consistent leap year handling across frontend/cloud
 const { addYears: calculateAddYears } = require('./utils/warranty.js')  // Fixed NEW-1: Correct relative path for cloud function
+const { normalizeModel } = require('./utils/recall.js')
 
 function ok(data) {
   return { code: 0, data }
@@ -101,6 +102,87 @@ async function getMembersDetail(members, ownerOpenid) {
   }))
 }
 
+function chunk(list, size) {
+  const chunks = []
+  for (let i = 0; i < list.length; i += size) chunks.push(list.slice(i, i + size))
+  return chunks
+}
+
+function recallView(recall) {
+  if (!recall) return null
+  return {
+    _id: recall._id,
+    title: recall.title || '',
+    brand: recall.brand || '',
+    model: recall.model || '',
+    category: recall.category || '',
+    link: recall.link || '',
+    publishedAt: recall.publishedAt || ''
+  }
+}
+
+function newerRecall(a, b) {
+  if (!a) return b
+  if (!b) return a
+  return String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')) > 0 ? b : a
+}
+
+/**
+ * Load recall matches for model strings.
+ * New records use modelNormalized; legacy records still match the raw model field.
+ */
+async function getRecallMap(models) {
+  const modelList = [...new Set((models || []).map(v => String(v || '').trim()).filter(Boolean))]
+  if (!modelList.length) return {}
+
+  const recallMap = {}
+  const normalizedList = [...new Set(modelList.map(normalizeModel).filter(Boolean))]
+  const normalizedFound = new Set()
+
+  for (const group of chunk(normalizedList, 10)) {
+    const res = await db.collection('recalls')
+      .where({ modelNormalized: _.in(group) })
+      .limit(100)
+      .get()
+      .catch(() => ({ data: [] }))
+    ;(res.data || []).forEach(recall => {
+      const key = normalizeModel(recall.modelNormalized || recall.model)
+      if (!key) return
+      normalizedFound.add(key)
+      recallMap[key] = newerRecall(recallMap[key], recall)
+    })
+  }
+
+  const legacyModels = modelList.filter(model => !normalizedFound.has(normalizeModel(model)))
+  for (const group of chunk(legacyModels, 10)) {
+    const res = await db.collection('recalls')
+      .where({ model: _.in(group) })
+      .limit(100)
+      .get()
+      .catch(() => ({ data: [] }))
+    ;(res.data || []).forEach(recall => {
+      const key = normalizeModel(recall.model)
+      if (!key) return
+      recallMap[key] = newerRecall(recallMap[key], recall)
+    })
+  }
+
+  return recallMap
+}
+
+async function enrichDevicesWithRecalls(devices) {
+  const list = devices || []
+  if (!list.length) return list
+  const recallMap = await getRecallMap(list.map(device => device.model))
+  return list.map(device => {
+    const recall = recallMap[normalizeModel(device.model)] || null
+    return Object.assign({}, device, {
+      recalled: !!recall,
+      recall: recallView(recall)
+    })
+  })
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext()
   const { action } = event || {}
@@ -130,6 +212,7 @@ exports.main = async (event) => {
         const avatarFileId = String(event.avatarFileId || '').trim()
         const now = db.serverDate()
         const existing = await db.collection('users').where({ openid: OPENID }).limit(1).get()
+        const oldAvatarFileId = existing.data.length ? String(existing.data[0].avatarFileId || '') : ''
         if (existing.data.length) {
           await db.collection('users').doc(existing.data[0]._id).update({
             data: { nickname, avatarFileId, updatedAt: now }
@@ -138,6 +221,20 @@ exports.main = async (event) => {
           await db.collection('users').add({
             data: { openid: OPENID, nickname, avatarFileId, createdAt: now, updatedAt: now }
           })
+        }
+        // Best-effort cleanup after the profile write. A storage cleanup failure must not
+        // roll back the user's confirmed nickname/avatar change.
+        if (
+          oldAvatarFileId &&
+          oldAvatarFileId !== avatarFileId &&
+          oldAvatarFileId.indexOf('cloud://') === 0 &&
+          oldAvatarFileId.includes('/avatars/')
+        ) {
+          try {
+            await cloud.deleteFile({ fileList: [oldAvatarFileId] })
+          } catch (e) {
+            console.warn('[FamilyService] Old avatar cleanup failed:', e.message)
+          }
         }
         return ok({ openid: OPENID, nickname, avatarFileId })
       }
@@ -263,7 +360,8 @@ exports.main = async (event) => {
             .count()
           archivedCount = cnt.total || 0
         }
-        return ok({ familyId: fam._id, devices: res.data, archivedCount })
+        const devices = wantArchived ? res.data : await enrichDevicesWithRecalls(res.data)
+        return ok({ familyId: fam._id, devices, archivedCount })
       }
 
       case 'getDevice': {
@@ -271,7 +369,8 @@ exports.main = async (event) => {
         if (!fam) return fail('请先创建或加入家庭')
         if (!event.id) return fail('缺少设备 id')
         const device = await assertDeviceBelongs(event.id, fam._id)
-        return ok(device)
+        const enriched = await enrichDevicesWithRecalls([device])
+        return ok(enriched[0])
       }
 
       case 'createDevice': {
